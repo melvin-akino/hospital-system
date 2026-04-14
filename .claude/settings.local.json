@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npm show:*)",
+      "Bash(npm install:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ls -la /c/Projects/PIBS/apps/api/src/modules/*/)",
+      "Bash(ls \"C:/Projects/PIBS/apps/web/src/services/\"*Service*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"console.log\\(process.execPath\\)\")"
+    ]
+  }
+}
