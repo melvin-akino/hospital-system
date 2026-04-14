@@ -36,6 +36,10 @@ import {
   VideoCameraOutlined,
   RobotOutlined,
   FormOutlined,
+  MessageOutlined,
+  CreditCardOutlined,
+  ShareAltOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -257,6 +261,41 @@ const menuItems = [
       { key: '/nurses/vitals', icon: <MonitorOutlined />, label: 'Record Vitals' },
       { key: '/nurses/care-plans', icon: <FileTextOutlined />, label: 'Care Plans' },
       { key: '/nurses/handover', icon: <AuditOutlined />, label: 'Shift Handover' },
+    ],
+  },
+  {
+    key: 'appointments-section',
+    icon: <CalendarOutlined />,
+    label: 'Appointments',
+    children: [
+      { key: '/appointments', icon: <CalendarOutlined />, label: 'All Appointments' },
+      { key: '/appointments/new', icon: <UserOutlined />, label: 'Book Appointment' },
+      { key: '/appointments/availability', icon: <MonitorOutlined />, label: 'Availability' },
+    ],
+  },
+  {
+    key: 'sms-section',
+    icon: <MessageOutlined />,
+    label: 'SMS Notifications',
+    children: [
+      { key: '/sms', icon: <MessageOutlined />, label: 'SMS Dashboard' },
+    ],
+  },
+  {
+    key: 'online-payments-section',
+    icon: <CreditCardOutlined />,
+    label: 'Online Payments',
+    children: [
+      { key: '/payments/online', icon: <CreditCardOutlined />, label: 'Process Payment' },
+      { key: '/payments/transactions', icon: <DollarOutlined />, label: 'Transactions' },
+    ],
+  },
+  {
+    key: 'hie-section',
+    icon: <ShareAltOutlined />,
+    label: 'HIE / Interoperability',
+    children: [
+      { key: '/hie', icon: <GlobalOutlined />, label: 'HIE Dashboard' },
     ],
   },
   {

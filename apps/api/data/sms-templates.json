@@ -1,0 +1,42 @@
+[
+  {
+    "name": "APPOINTMENT_REMINDER",
+    "category": "APPOINTMENT",
+    "template": "Dear {{patientName}}, this is a reminder for your appointment with Dr. {{doctorName}} on {{date}} at {{time}}. Please arrive 15 minutes early. - PIBS Hospital",
+    "id": "dd2e4aa0-c7be-4906-a358-89c99ed4e73a",
+    "createdAt": "2026-04-14T09:00:51.222Z",
+    "updatedAt": "2026-04-14T09:00:51.222Z"
+  },
+  {
+    "name": "LAB_RESULT_READY",
+    "category": "LABORATORY",
+    "template": "Dear {{patientName}}, your laboratory results are now available. Please visit the hospital or check your patient portal. - PIBS Hospital",
+    "id": "74aa5c87-bfed-47e1-aa2e-d852eeeeceef",
+    "createdAt": "2026-04-14T09:00:51.222Z",
+    "updatedAt": "2026-04-14T09:00:51.222Z"
+  },
+  {
+    "name": "BILL_READY",
+    "category": "BILLING",
+    "template": "Dear {{patientName}}, your bill ({{billNo}}) of {{amount}} is ready for payment. - PIBS Hospital",
+    "id": "3a7d8d2f-bae1-4db4-855c-a93c973f5c70",
+    "createdAt": "2026-04-14T09:00:51.222Z",
+    "updatedAt": "2026-04-14T09:00:51.222Z"
+  },
+  {
+    "name": "PRESCRIPTION_READY",
+    "category": "PHARMACY",
+    "template": "Dear {{patientName}}, your prescription is ready for pickup at our pharmacy. - PIBS Hospital",
+    "id": "8a32e0cf-70b3-4b5d-9bbb-1bfcfba789c1",
+    "createdAt": "2026-04-14T09:00:51.222Z",
+    "updatedAt": "2026-04-14T09:00:51.222Z"
+  },
+  {
+    "name": "APPOINTMENT_CONFIRMED",
+    "category": "APPOINTMENT",
+    "template": "Dear {{patientName}}, your appointment with Dr. {{doctorName}} on {{date}} has been confirmed. Room code: {{roomCode}}. - PIBS Hospital",
+    "id": "38435dfd-aa9b-42ed-9654-615db242a3e8",
+    "createdAt": "2026-04-14T09:00:51.222Z",
+    "updatedAt": "2026-04-14T09:00:51.222Z"
+  }
+]

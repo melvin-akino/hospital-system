@@ -26,6 +26,11 @@ import barcodeRoutes from '../modules/barcode/barcode.routes';
 import telemedicineRoutes from '../modules/telemedicine/telemedicine.routes';
 import aiRoutes from '../modules/ai/ai.routes';
 import nursesRoutes from '../modules/nurses/nurses.routes';
+import smsRoutes from '../modules/sms/sms.routes';
+import onlinePaymentRoutes from '../modules/payments/payments.routes';
+import appointmentRoutes from '../modules/appointments/appointments.routes';
+import hieRoutes from '../modules/hie/hie.routes';
+import patientPortalRoutes from '../modules/patient-portal/patient-portal.routes';
 
 export const router = Router();
 
@@ -66,6 +71,13 @@ router.use('/', barcodeRoutes);
 router.use('/', telemedicineRoutes);
 router.use('/', aiRoutes);
 router.use('/', nursesRoutes);
+
+// Phase 7 modules
+router.use('/', smsRoutes);
+router.use('/', onlinePaymentRoutes);
+router.use('/', appointmentRoutes);
+router.use('/', hieRoutes);
+router.use('/', patientPortalRoutes);
 
 // API info
 router.get('/', (_req, res) => {

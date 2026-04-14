@@ -13,7 +13,7 @@ import {
   Spin,
   Alert,
 } from 'antd';
-import { EditOutlined, ArrowLeftOutlined, FileTextOutlined, DollarOutlined } from '@ant-design/icons';
+import { EditOutlined, ArrowLeftOutlined, FileTextOutlined, DollarOutlined, ReadOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { usePatient, usePatientHistory } from '../../hooks/usePatients';
@@ -145,6 +145,9 @@ const PatientDetailPage: React.FC = () => {
               onClick={() => navigate(`/billing/new?patientId=${p.id}`)}
             >
               New Bill
+            </Button>
+            <Button icon={<ReadOutlined />} onClick={() => navigate(`/emr/${p.id}`)}>
+              View EMR
             </Button>
             <Button
               type="primary"

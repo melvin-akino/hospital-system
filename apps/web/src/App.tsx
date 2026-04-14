@@ -117,6 +117,21 @@ const VitalsEntryPage = lazy(() => import('./pages/nurses/VitalsEntryPage'));
 const CarePlanPage = lazy(() => import('./pages/nurses/CarePlanPage'));
 const ShiftHandoverPage = lazy(() => import('./pages/nurses/ShiftHandoverPage'));
 
+// Phase 7: SMS
+const SMSDashboardPage = lazy(() => import('./pages/sms/SMSDashboardPage'));
+
+// Phase 7: Online Payments
+const OnlinePaymentPage = lazy(() => import('./pages/payments/OnlinePaymentPage'));
+const TransactionHistoryPage = lazy(() => import('./pages/payments/TransactionHistoryPage'));
+
+// Phase 7: Appointments
+const AppointmentListPage = lazy(() => import('./pages/appointments/AppointmentListPage'));
+const AppointmentFormPage = lazy(() => import('./pages/appointments/AppointmentFormPage'));
+const AvailabilityCalendarPage = lazy(() => import('./pages/appointments/AvailabilityCalendarPage'));
+
+// Phase 7: HIE
+const HIEDashboardPage = lazy(() => import('./pages/hie/HIEDashboardPage'));
+
 // Departments
 const DepartmentListPage = lazy(() => import('./pages/departments/DepartmentListPage'));
 
@@ -274,6 +289,21 @@ const App: React.FC = () => {
 
           {/* Departments */}
           <Route path="/departments" element={<DepartmentListPage />} />
+
+          {/* Phase 7: SMS */}
+          <Route path="/sms" element={<SMSDashboardPage />} />
+
+          {/* Phase 7: Online Payments */}
+          <Route path="/payments/online" element={<OnlinePaymentPage />} />
+          <Route path="/payments/transactions" element={<TransactionHistoryPage />} />
+
+          {/* Phase 7: Appointments */}
+          <Route path="/appointments" element={<AppointmentListPage />} />
+          <Route path="/appointments/new" element={<AppointmentFormPage />} />
+          <Route path="/appointments/availability" element={<AvailabilityCalendarPage />} />
+
+          {/* Phase 7: HIE */}
+          <Route path="/hie" element={<HIEDashboardPage />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
