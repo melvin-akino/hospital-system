@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
+import { emitQueueUpdate } from '../../lib/socket';
 
 const generateTicketNo = async (departmentCode: string, queueId: string): Promise<string> => {
   const today = new Date();
@@ -109,6 +110,8 @@ export const addToQueue = asyncHandler(async (req: Request, res: Response) => {
   });
 
   successResponse(res, entry, 'Patient added to queue', 201);
+  // Push real-time update to all display screens
+  await emitQueueUpdate(departmentId);
 });
 
 export const callNext = asyncHandler(async (req: Request, res: Response) => {
@@ -158,6 +161,7 @@ export const callNext = asyncHandler(async (req: Request, res: Response) => {
   });
 
   successResponse(res, updated, `Now serving: ${updated.ticketNo}`);
+  await emitQueueUpdate(departmentId);
 });
 
 export const completeEntry = asyncHandler(async (req: Request, res: Response) => {
@@ -172,9 +176,11 @@ export const completeEntry = asyncHandler(async (req: Request, res: Response) =>
   const updated = await prisma.queueEntry.update({
     where: { id },
     data: { status: 'SERVED', servedAt: new Date() },
+    include: { queue: { select: { departmentId: true } } },
   });
 
   successResponse(res, updated, 'Entry completed');
+  await emitQueueUpdate(updated.queue.departmentId);
 });
 
 export const skipEntry = asyncHandler(async (req: Request, res: Response) => {
@@ -189,9 +195,11 @@ export const skipEntry = asyncHandler(async (req: Request, res: Response) => {
   const updated = await prisma.queueEntry.update({
     where: { id },
     data: { status: 'SKIPPED' },
+    include: { queue: { select: { departmentId: true } } },
   });
 
   successResponse(res, updated, 'Entry skipped');
+  await emitQueueUpdate(updated.queue.departmentId);
 });
 
 export const getAnalytics = asyncHandler(async (req: Request, res: Response) => {

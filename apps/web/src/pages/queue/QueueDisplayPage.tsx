@@ -1,26 +1,10 @@
 import React, { useState } from 'react';
-import {
-  Typography,
-  Select,
-  Card,
-  Table,
-  Tag,
-  Row,
-  Col,
-  Spin,
-} from 'antd';
+import { Typography, Select, Card, Table, Tag, Spin, Badge } from 'antd';
+import { WifiOutlined, DisconnectOutlined } from '@ant-design/icons';
 import { useDepartmentQueues, useQueueStatus } from '../../hooks/useQueue';
+import { useQueueSocket, QueueEntry } from '../../hooks/useQueueSocket';
 
-const { Title, Text } = Typography;
-
-interface QueueEntry {
-  id: string;
-  ticketNo: string;
-  priority: number;
-  status: string;
-  createdAt: string;
-  patient?: { firstName: string; lastName: string; patientNo: string };
-}
+const { Text } = Typography;
 
 interface Queue {
   id: string;
@@ -34,50 +18,78 @@ const QueueDisplayPage: React.FC = () => {
   const [selectedDeptId, setSelectedDeptId] = useState<string>('');
 
   const { data: queuesData, isLoading: queuesLoading } = useDepartmentQueues();
-  const { data: statusData, isLoading: statusLoading } = useQueueStatus(selectedDeptId, 5000);
+  // Fallback HTTP poll — used for initial load and when socket is disconnected
+  const { data: statusData, isLoading: statusLoading } = useQueueStatus(selectedDeptId, 8000);
+  // Real-time socket subscription
+  const socketState = useQueueSocket(selectedDeptId);
 
   const queues: Queue[] = queuesData?.data || [];
-  const queueStatus = statusData?.data;
+  const httpStatus = statusData?.data;
 
-  const nowServing: QueueEntry | undefined = queueStatus?.nowServing;
-  const waiting: QueueEntry[] = queueStatus?.waiting || [];
+  // Prefer socket data (live), fall back to HTTP poll data
+  const nowServing: QueueEntry | null = socketState.connected
+    ? socketState.nowServing
+    : (httpStatus?.nowServing ?? null);
+  const waiting: QueueEntry[] = socketState.connected
+    ? socketState.waiting
+    : (httpStatus?.waiting ?? []);
+  const waitingCount: number = socketState.connected
+    ? socketState.waitingCount
+    : (httpStatus?.waitingCount ?? 0);
+  const queueMeta = socketState.connected ? socketState.queue : httpStatus?.queue;
+
   const nextFive = waiting.slice(0, 5);
 
   const waitingColumns = [
     {
       title: 'Ticket No.',
       dataIndex: 'ticketNo',
-      render: (v: string) => (
-        <Text strong style={{ fontSize: 18 }}>{v}</Text>
-      ),
+      render: (v: string) => <Text strong style={{ fontSize: 18, color: '#fff' }}>{v}</Text>,
     },
     {
       title: 'Patient',
       key: 'patient',
       render: (_: unknown, row: QueueEntry) =>
-        row.patient ? `${row.patient.lastName}, ${row.patient.firstName}` : '—',
+        row.patient ? (
+          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 16 }}>
+            {row.patient.lastName}, {row.patient.firstName}
+          </Text>
+        ) : '—',
     },
     {
       title: 'Priority',
       dataIndex: 'priority',
       render: (v: number) => (
-        <Tag color={v > 0 ? 'gold' : 'default'}>{v > 0 ? 'Priority' : 'Regular'}</Tag>
+        <Tag color={v > 0 ? 'gold' : 'default'}>{v > 0 ? '⭐ Priority' : 'Regular'}</Tag>
       ),
     },
   ];
 
+  const isLoading = !socketState.connected && statusLoading;
+
   return (
     <div className="page-container" style={{ minHeight: '100vh', background: '#001529' }}>
-      {/* Department Selector */}
-      <div style={{ padding: '24px 24px 0', display: 'flex', justifyContent: 'flex-end' }}>
+      {/* Top bar */}
+      <div style={{ padding: '20px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Live / Offline badge */}
+        <div>
+          {selectedDeptId && (
+            socketState.connected ? (
+              <Badge status="processing" color="green" text={<Text style={{ color: '#52c41a', fontSize: 13 }}><WifiOutlined /> Live</Text>} />
+            ) : (
+              <Badge status="default" text={<Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}><DisconnectOutlined /> Polling</Text>} />
+            )
+          )}
+        </div>
+
         <Select
           placeholder="Select Department"
-          style={{ width: 260, background: 'white' }}
+          style={{ width: 260 }}
           loading={queuesLoading}
           onChange={(v) => setSelectedDeptId(v)}
           options={queues.map((q) => ({
             value: q.departmentId,
-            label: `${q.department?.name || q.name}`,
+            label: q.department?.name || q.name,
           }))}
         />
       </div>
@@ -88,7 +100,7 @@ const QueueDisplayPage: React.FC = () => {
             Select a department to display the queue
           </Text>
         </div>
-      ) : statusLoading ? (
+      ) : isLoading ? (
         <div style={{ textAlign: 'center', padding: 120 }}>
           <Spin size="large" />
         </div>
@@ -97,7 +109,7 @@ const QueueDisplayPage: React.FC = () => {
           {/* Department Name */}
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18 }}>
-              {queueStatus?.queue?.department?.name || queueStatus?.queue?.name || 'Queue'}
+              {queueMeta?.department?.name || queueMeta?.name || 'Queue'}
             </Text>
           </div>
 
@@ -136,11 +148,11 @@ const QueueDisplayPage: React.FC = () => {
           <Card
             title={
               <span style={{ color: '#fff', fontSize: 18 }}>
-                Next in Line ({queueStatus?.waitingCount || 0} waiting)
+                Next in Line ({waitingCount} waiting)
               </span>
             }
             style={{ background: '#0d2137', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-            headStyle={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+            styles={{ header: { borderBottom: '1px solid rgba(255,255,255,0.1)' } }}
           >
             {nextFive.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 24, color: 'rgba(255,255,255,0.4)', fontSize: 18 }}>
@@ -160,7 +172,9 @@ const QueueDisplayPage: React.FC = () => {
           </Card>
 
           <div style={{ textAlign: 'center', marginTop: 16, color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
-            Auto-refreshes every 5 seconds
+            {socketState.connected
+              ? '⚡ Real-time via WebSocket'
+              : '🔄 Polling every 8 seconds (reconnecting…)'}
           </div>
         </div>
       )}

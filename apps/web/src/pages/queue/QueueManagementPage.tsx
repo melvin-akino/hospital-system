@@ -31,6 +31,7 @@ import {
   useSkipEntry,
   useQueueAnalytics,
 } from '../../hooks/useQueue';
+import { useQueueSocket } from '../../hooks/useQueueSocket';
 import { patientService } from '../../services/patientService';
 
 const { Title, Text } = Typography;
@@ -61,7 +62,9 @@ const QueueManagementPage: React.FC = () => {
   const [isSeniorOrPwd, setIsSeniorOrPwd] = useState(false);
 
   const { data: queuesData } = useDepartmentQueues();
-  const { data: statusData, isLoading: statusLoading } = useQueueStatus(selectedDeptId, 5000);
+  // Real-time subscription — auto-invalidates query cache on any queue mutation
+  useQueueSocket(selectedDeptId);
+  const { data: statusData, isLoading: statusLoading } = useQueueStatus(selectedDeptId, 10000);
   const { data: analyticsData } = useQueueAnalytics(selectedDeptId);
   const addToQueue = useAddToQueue();
   const callNext = useCallNext();

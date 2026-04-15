@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -9,6 +10,7 @@ import path from 'path';
 import { router } from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
+import { initSocket } from './lib/socket';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -58,7 +60,10 @@ app.get('/health', (_req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+const httpServer = http.createServer(app);
+initSocket(httpServer, allowedOrigins);
+
+httpServer.listen(PORT, () => {
   console.log(`iHIMS API running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
