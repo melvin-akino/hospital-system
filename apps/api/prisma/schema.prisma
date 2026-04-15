@@ -900,23 +900,26 @@ model GlEntry {
 
 // ============ SMS LOGS ============
 model SmsLog {
-  id        String    @id @default(uuid())
-  recipient String
-  message   String
-  status    String    @default("PENDING")
-  provider  String?
-  messageId String?
-  sentAt    DateTime?
-  createdAt DateTime  @default(now())
+  id         String    @id @default(uuid())
+  recipient  String
+  message    String
+  templateId String?
+  status     String    @default("PENDING")
+  provider   String?
+  messageId  String?
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
 
   @@map("sms_logs")
 }
 
 model SmsTemplate {
-  id       String  @id @default(uuid())
-  name     String  @unique
-  template String
-  category String?
+  id        String    @id @default(uuid())
+  name      String    @unique
+  template  String
+  category  String    @default("GENERAL")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@map("sms_templates")
 }
@@ -1044,4 +1047,117 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+// ============ HIE — Health Information Exchange ============
+model HieConsent {
+  id                 String   @id @default(uuid())
+  patientId          String   @unique
+  consentType        String
+  authorizedHospital String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("hie_consents")
+}
+
+model HieRequest {
+  id                 String   @id @default(uuid())
+  requestNo          String   @unique
+  patientId          String
+  requestingFacility String
+  requestedFacility  String
+  reason             String
+  status             String   @default("PENDING")
+  createdAt          DateTime @default(now())
+
+  @@map("hie_requests")
+}
+
+model HieReferral {
+  id                String   @id @default(uuid())
+  referralNo        String   @unique
+  patientId         String
+  referringDoctor   String
+  receivingFacility String
+  reason            String
+  urgency           String   @default("ROUTINE")
+  status            String   @default("SENT")
+  createdAt         DateTime @default(now())
+
+  @@map("hie_referrals")
+}
+
+model HieAuditEntry {
+  id          String   @id @default(uuid())
+  action      String
+  patientId   String
+  performedBy String
+  facility    String
+  details     String
+  createdAt   DateTime @default(now())
+
+  @@map("hie_audit_entries")
+}
+
+// ============ DOH REPORTING ============
+model DohSubmissionLog {
+  id         String   @id @default(uuid())
+  reportType String
+  period     String
+  notes      String?
+  submittedAt DateTime @default(now())
+
+  @@map("doh_submission_logs")
+}
+
+// ============ BARCODE / RFID ============
+model BarcodeScan {
+  id            String   @id @default(uuid())
+  barcodeString String
+  scannedAt     DateTime @default(now())
+  location      String?
+  scannedBy     String?
+  resolved      Boolean  @default(false)
+  scanType      String?
+  details       Json?
+  createdAt     DateTime @default(now())
+
+  @@map("barcode_scans")
+}
+
+// ============ TELEMEDICINE ============
+model TelemedicineSession {
+  id           String    @id @default(uuid())
+  sessionNo    String    @unique
+  patientId    String
+  doctorId     String
+  scheduledAt  DateTime
+  status       String    @default("SCHEDULED")
+  roomCode     String    @unique
+  notes        String    @default("")
+  prescription String    @default("")
+  startedAt    DateTime?
+  endedAt      DateTime?
+  duration     Int?
+  createdAt    DateTime  @default(now())
+
+  @@map("telemedicine_sessions")
+}
+
+// ============ ONLINE PAYMENTS ============
+model PaymentIntent {
+  id          String    @id @default(uuid())
+  intentId    String    @unique
+  billId      String
+  amount      Decimal   @db.Decimal(12, 2)
+  method      String
+  status      String    @default("PENDING")
+  checkoutUrl String
+  description String
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+
+  @@map("payment_intents")
 }

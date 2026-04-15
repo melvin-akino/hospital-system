@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
-import fs from 'fs';
-import path from 'path';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
 
@@ -21,42 +19,6 @@ const NOTIFIABLE_DISEASES = [
   { icdCode: 'A27', disease: 'Leptospirosis' },
 ];
 
-// ============ JSON FILE HELPERS ============
-const DATA_DIR = path.join(__dirname, '../../../../data');
-const DOH_LOGS_FILE = path.join(DATA_DIR, 'doh-logs.json');
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-function readDohLogs(): DohSubmissionLog[] {
-  ensureDataDir();
-  if (!fs.existsSync(DOH_LOGS_FILE)) {
-    fs.writeFileSync(DOH_LOGS_FILE, '[]', 'utf-8');
-    return [];
-  }
-  try {
-    return JSON.parse(fs.readFileSync(DOH_LOGS_FILE, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
-
-function writeDohLogs(logs: DohSubmissionLog[]) {
-  ensureDataDir();
-  fs.writeFileSync(DOH_LOGS_FILE, JSON.stringify(logs, null, 2), 'utf-8');
-}
-
-interface DohSubmissionLog {
-  id: string;
-  reportType: string;
-  period: string;
-  notes?: string;
-  submittedAt: string;
-}
-
 // ============ AGE GROUP HELPER ============
 function getAgeGroup(dateOfBirth: Date): string {
   const age = new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
@@ -72,18 +34,7 @@ function getAgeGroup(dateOfBirth: Date): string {
   return '60+ years';
 }
 
-const AGE_GROUPS = [
-  '<1 year',
-  '1-4 years',
-  '5-9 years',
-  '10-14 years',
-  '15-19 years',
-  '20-29 years',
-  '30-39 years',
-  '40-49 years',
-  '50-59 years',
-  '60+ years',
-];
+const AGE_GROUPS = ['<1 year', '1-4 years', '5-9 years', '10-14 years', '15-19 years', '20-29 years', '30-39 years', '40-49 years', '50-59 years', '60+ years'];
 
 // GET /api/doh/fhsis-report?month=&year=
 export const generateFHSIS = asyncHandler(async (req: Request, res: Response) => {
@@ -98,28 +49,16 @@ export const generateFHSIS = asyncHandler(async (req: Request, res: Response) =>
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0, 23, 59, 59);
 
-  // Get consultations in period
   const consultations = await prisma.consultation.findMany({
-    where: {
-      scheduledAt: { gte: startDate, lte: endDate },
-      status: { not: 'CANCELLED' },
-    },
-    include: {
-      patient: {
-        select: { id: true, dateOfBirth: true, gender: true },
-      },
-    },
+    where: { scheduledAt: { gte: startDate, lte: endDate }, status: { not: 'CANCELLED' } },
+    include: { patient: { select: { id: true, dateOfBirth: true, gender: true } } },
   });
 
-  // Get admissions in period
   const admissions = await prisma.admission.findMany({
-    where: {
-      admittedAt: { gte: startDate, lte: endDate },
-    },
+    where: { admittedAt: { gte: startDate, lte: endDate } },
     select: { id: true, diagnosis: true },
   });
 
-  // OPD stats
   const patientsSeen = new Set<string>();
   const ageGroupStats: Record<string, { male: number; female: number }> = {};
   AGE_GROUPS.forEach((g) => { ageGroupStats[g] = { male: 0, female: 0 }; });
@@ -146,13 +85,9 @@ export const generateFHSIS = asyncHandler(async (req: Request, res: Response) =>
     total: (ageGroupStats[group]?.male ?? 0) + (ageGroupStats[group]?.female ?? 0),
   }));
 
-  // Admissions by diagnosis (using raw diagnosis field)
   const diagnosisMap: Record<string, number> = {};
   for (const a of admissions) {
-    if (a.diagnosis) {
-      const key = a.diagnosis;
-      diagnosisMap[key] = (diagnosisMap[key] ?? 0) + 1;
-    }
+    if (a.diagnosis) diagnosisMap[a.diagnosis] = (diagnosisMap[a.diagnosis] ?? 0) + 1;
   }
   const byDiagnosis = Object.entries(diagnosisMap)
     .map(([description, count]) => ({ icdCode: 'N/A', description, count }))
@@ -161,16 +96,8 @@ export const generateFHSIS = asyncHandler(async (req: Request, res: Response) =>
 
   successResponse(res, {
     reportingPeriod: { month, year },
-    opd: {
-      totalVisits: consultations.length,
-      newCases,
-      oldCases,
-      byAgeGroup,
-    },
-    admissions: {
-      total: admissions.length,
-      byDiagnosis,
-    },
+    opd: { totalVisits: consultations.length, newCases, oldCases, byAgeGroup },
+    admissions: { total: admissions.length, byDiagnosis },
     deaths: 0,
     reportGeneratedAt: new Date().toISOString(),
   });
@@ -180,67 +107,37 @@ export const generateFHSIS = asyncHandler(async (req: Request, res: Response) =>
 export const generatePIDSR = asyncHandler(async (req: Request, res: Response) => {
   const { dateFrom, dateTo } = req.query;
 
-  const startDate = dateFrom ? new Date(dateFrom as string) : (() => {
-    const d = new Date(); d.setDate(d.getDate() - 30); return d;
-  })();
+  const startDate = dateFrom ? new Date(dateFrom as string) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; })();
   const endDate = dateTo ? new Date(dateTo as string) : new Date();
 
-  // Get consultations with ICD codes in the period
   const consultations = await prisma.consultation.findMany({
-    where: {
-      scheduledAt: { gte: startDate, lte: endDate },
-      status: { not: 'CANCELLED' },
-    },
+    where: { scheduledAt: { gte: startDate, lte: endDate }, status: { not: 'CANCELLED' } },
     select: { id: true, icdCodes: true, scheduledAt: true },
   });
 
-  // Map ICD codes to notifiable diseases
   const diseaseMap: Record<string, { cases: number; casesByWeek: Record<number, number> }> = {};
 
   for (const c of consultations) {
     for (const icd of c.icdCodes) {
       const disease = NOTIFIABLE_DISEASES.find((d) => icd.startsWith(d.icdCode));
       if (disease) {
-        if (!diseaseMap[disease.icdCode]) {
-          diseaseMap[disease.icdCode] = { cases: 0, casesByWeek: {} };
-        }
+        if (!diseaseMap[disease.icdCode]) diseaseMap[disease.icdCode] = { cases: 0, casesByWeek: {} };
         diseaseMap[disease.icdCode].cases++;
-
-        // Week number within period
-        const weekNo = Math.ceil(
-          (c.scheduledAt.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
-        ) + 1;
-        diseaseMap[disease.icdCode].casesByWeek[weekNo] =
-          (diseaseMap[disease.icdCode].casesByWeek[weekNo] ?? 0) + 1;
+        const weekNo = Math.ceil((c.scheduledAt.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
+        diseaseMap[disease.icdCode].casesByWeek[weekNo] = (diseaseMap[disease.icdCode].casesByWeek[weekNo] ?? 0) + 1;
       }
     }
   }
 
   const result = NOTIFIABLE_DISEASES.map((nd) => {
     const stats = diseaseMap[nd.icdCode];
-    const casesByWeek = stats
-      ? Object.entries(stats.casesByWeek).map(([week, count]) => ({ week: Number(week), count }))
-      : [];
-    const thisWeekNo = Math.ceil(
-      (new Date().getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
-    );
+    const casesByWeek = stats ? Object.entries(stats.casesByWeek).map(([week, count]) => ({ week: Number(week), count })) : [];
+    const thisWeekNo = Math.ceil((new Date().getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
     const thisWeek = casesByWeek.find((w) => w.week === thisWeekNo)?.count ?? 0;
-    return {
-      disease: nd.disease,
-      icdCode: nd.icdCode,
-      cases: stats?.cases ?? 0,
-      deaths: 0,
-      thisWeek,
-      casesByWeek,
-    };
-  }).filter((d) => d.cases > 0 || true); // include all for reference
-
-  successResponse(res, {
-    dateFrom: startDate.toISOString().split('T')[0],
-    dateTo: endDate.toISOString().split('T')[0],
-    diseases: result,
-    reportGeneratedAt: new Date().toISOString(),
+    return { disease: nd.disease, icdCode: nd.icdCode, cases: stats?.cases ?? 0, deaths: 0, thisWeek, casesByWeek };
   });
+
+  successResponse(res, { dateFrom: startDate.toISOString().split('T')[0], dateTo: endDate.toISOString().split('T')[0], diseases: result, reportGeneratedAt: new Date().toISOString() });
 });
 
 // GET /api/doh/disease-cases?icdCode=&dateFrom=&dateTo=
@@ -252,31 +149,14 @@ export const getDiseaseCases = asyncHandler(async (req: Request, res: Response) 
     return;
   }
 
-  const startDate = dateFrom ? new Date(dateFrom as string) : (() => {
-    const d = new Date(); d.setDate(d.getDate() - 30); return d;
-  })();
+  const startDate = dateFrom ? new Date(dateFrom as string) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; })();
   const endDate = dateTo ? new Date(dateTo as string) : new Date();
 
   const consultations = await prisma.consultation.findMany({
-    where: {
-      scheduledAt: { gte: startDate, lte: endDate },
-      status: { not: 'CANCELLED' },
-      icdCodes: { has: icdCode as string },
-    },
+    where: { scheduledAt: { gte: startDate, lte: endDate }, status: { not: 'CANCELLED' }, icdCodes: { has: icdCode as string } },
     include: {
-      patient: {
-        select: {
-          id: true,
-          patientNo: true,
-          firstName: true,
-          lastName: true,
-          dateOfBirth: true,
-          gender: true,
-        },
-      },
-      doctor: {
-        select: { firstName: true, lastName: true },
-      },
+      patient: { select: { id: true, patientNo: true, firstName: true, lastName: true, dateOfBirth: true, gender: true } },
+      doctor: { select: { firstName: true, lastName: true } },
     },
     orderBy: { scheduledAt: 'desc' },
     take: 200,
@@ -310,23 +190,15 @@ export const logSubmission = asyncHandler(async (req: Request, res: Response) =>
     return;
   }
 
-  const log: DohSubmissionLog = {
-    id: `DOH-${Date.now()}`,
-    reportType,
-    period,
-    notes: notes || undefined,
-    submittedAt: new Date().toISOString(),
-  };
-
-  const logs = readDohLogs();
-  logs.unshift(log);
-  writeDohLogs(logs);
+  const log = await prisma.dohSubmissionLog.create({
+    data: { reportType, period, notes: notes || null },
+  });
 
   successResponse(res, log, 'Submission logged', 201);
 });
 
 // GET /api/doh/submission-history
 export const getSubmissionHistory = asyncHandler(async (_req: Request, res: Response) => {
-  const logs = readDohLogs();
+  const logs = await prisma.dohSubmissionLog.findMany({ orderBy: { submittedAt: 'desc' } });
   successResponse(res, logs);
 });
