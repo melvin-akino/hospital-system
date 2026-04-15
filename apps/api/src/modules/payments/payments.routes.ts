@@ -7,6 +7,7 @@ import {
   handleWebhook,
   simulateConfirm,
   getTransactions,
+  getPaymentConfig,
 } from './payments.controller';
 import { authenticate } from '../../middleware/auth';
 
@@ -14,6 +15,8 @@ const router = Router();
 
 // Webhook does not require authentication (called by payment provider)
 router.post('/payments/online/webhook', handleWebhook);
+// Public config (frontend needs to know if real gateway is active)
+router.get('/payments/online/config', getPaymentConfig);
 
 router.use(authenticate);
 

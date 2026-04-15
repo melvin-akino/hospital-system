@@ -38,7 +38,8 @@ import settingsRoutes from '../modules/settings/settings.routes';
 export const router = Router();
 
 router.use('/auth', authRoutes);
-router.use('/', settingsRoutes);   // Public branding must be before any auth-gated routers
+router.use('/', settingsRoutes);       // Public branding must be before any auth-gated routers
+router.use('/', onlinePaymentRoutes);  // Public /payments/online/config + /webhook before auth-gated routers
 router.use('/patients', patientRoutes);
 router.use('/doctors', doctorRoutes);
 router.use('/services', serviceRoutes);
@@ -78,7 +79,6 @@ router.use('/', nursesRoutes);
 
 // Phase 7 modules
 router.use('/', smsRoutes);
-router.use('/', onlinePaymentRoutes);
 router.use('/', appointmentRoutes);
 router.use('/', hieRoutes);
 router.use('/', patientPortalRoutes);

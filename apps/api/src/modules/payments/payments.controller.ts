@@ -2,15 +2,14 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
+import {
+  initiateGcashPayment,
+  initiateMayaPayment,
+  initiateCardPayment,
+  isPaymongoEnabled,
+} from './paymongo.service';
 
 type PaymentMethod = 'GCASH' | 'MAYA' | 'CREDIT_CARD' | 'DEBIT_CARD';
-
-function generateIntentId(method: PaymentMethod): string {
-  const methodCode = { GCASH: 'GCASH', MAYA: 'MAYA', CREDIT_CARD: 'CC', DEBIT_CARD: 'DC' }[method];
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `PI-${methodCode}-${date}-${rand}`;
-}
 
 async function initiatePayment(req: Request, res: Response, method: PaymentMethod): Promise<void> {
   const { billId, amount, description } = req.body;
@@ -25,20 +24,39 @@ async function initiatePayment(req: Request, res: Response, method: PaymentMetho
     return;
   }
 
-  const intentId = generateIntentId(method);
+  const amountNum = parseFloat(amount);
+  const desc = description || `Payment for Bill ${bill.billNo}`;
+
+  // Call PayMongo (or simulation fallback)
+  let gatewayResult;
+  try {
+    if (method === 'GCASH') gatewayResult = await initiateGcashPayment(amountNum, desc);
+    else if (method === 'MAYA') gatewayResult = await initiateMayaPayment(amountNum, desc);
+    else gatewayResult = await initiateCardPayment(amountNum, desc);
+  } catch (err: any) {
+    errorResponse(res, `Payment gateway error: ${err.message}`, 502);
+    return;
+  }
+
   const intent = await prisma.paymentIntent.create({
     data: {
-      intentId,
+      intentId: gatewayResult.paymentIntentId,
       billId,
-      amount: parseFloat(amount),
+      amount: amountNum,
       method,
       status: 'PENDING',
-      checkoutUrl: `https://checkout.ihims.hospital.ph/pay/${intentId}`,
-      description: description || `Payment for Bill ${bill.billNo}`,
+      checkoutUrl: gatewayResult.checkoutUrl,
+      description: desc,
     },
   });
 
-  successResponse(res, intent, `${method} payment initiated`);
+  successResponse(res, {
+    ...intent,
+    amount: Number(intent.amount),
+    checkoutUrl: gatewayResult.checkoutUrl,
+    isSimulated: gatewayResult.isSimulated,
+    paymongoEnabled: isPaymongoEnabled(),
+  }, `${method} payment initiated`);
 }
 
 export const initiateGcash = asyncHandler(async (req: Request, res: Response) => {
@@ -142,6 +160,15 @@ async function confirmPaymentInBilling(intent: { id: string; billId: string; amo
     }),
   ]);
 }
+
+// GET /payments/online/config (public — no auth)
+export const getPaymentConfig = asyncHandler(async (_req: Request, res: Response) => {
+  successResponse(res, {
+    paymongoEnabled: isPaymongoEnabled(),
+    supportedMethods: ['GCASH', 'MAYA', 'CREDIT_CARD', 'DEBIT_CARD'],
+    currency: 'PHP',
+  });
+});
 
 export const getTransactions = asyncHandler(async (req: Request, res: Response) => {
   const { method, status } = req.query;
