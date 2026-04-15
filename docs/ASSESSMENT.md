@@ -54,6 +54,8 @@ intelligent Hospital Information System (iHIMS) — full hospital management sys
 | Contextual Help System | ✅ | — | — | HelpDrawer with 20+ articles, ? button in header |
 | Real-time Queue (Socket.io) | ✅ | ✅ | Prisma | WebSocket push on add/call/complete/skip; Live badge |
 | PayMongo Payment Gateway | ✅ | ✅ | Prisma | GCash/Maya links + card intents; simulation fallback |
+| PhilHealth eClaims API | ✅ | ✅ | Prisma | Real REST calls to eClaims gateway; simulation fallback when creds absent |
+| HMO Direct Billing API | ✅ | ✅ | Prisma | Maxicare (OAuth2), Philam, Intellicare; per-HMO simulation fallback |
 
 ---
 
@@ -73,12 +75,6 @@ All 6 previously flat-file modules now use Prisma/PostgreSQL:
 ---
 
 ## Stub / Missing Features ❌
-
-### 🟡 Medium Priority — Medium Effort
-| Gap | Description |
-|-----|-------------|
-| PhilHealth eClaims API submission | CF4 XML generated but never submitted to PhilHealth |
-| HMO Direct Billing API | Eligibility check is local mock, not real HMO API |
 
 ### 🟡 Medium Priority — Large Effort
 | Gap | Description |
