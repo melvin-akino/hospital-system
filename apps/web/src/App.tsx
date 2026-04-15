@@ -4,6 +4,11 @@ import { Spin } from 'antd';
 import MainLayout from './components/layout/MainLayout';
 import PrivateRoute from './components/layout/PrivateRoute';
 
+// Profile & auth extras
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
+
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const UnauthorizedPage = lazy(() => import('./pages/auth/UnauthorizedPage'));
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
@@ -178,6 +183,8 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         {/* All authenticated routes share MainLayout */}
@@ -325,6 +332,9 @@ const App: React.FC = () => {
 
           {/* ── HIE ── */}
           <Route path="/hie" element={<Guard roles={ADMIN_ROLES}><HIEDashboardPage /></Guard>} />
+
+          {/* ── Profile (all authenticated users) ── */}
+          <Route path="/profile" element={<ProfilePage />} />
 
           {/* ── Administration ── */}
           <Route path="/settings" element={<Guard roles={ADMIN_ROLES}><SettingsPage /></Guard>} />

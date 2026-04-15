@@ -1,5 +1,14 @@
 import { Router } from 'express';
-import { login, logout, getMe, register } from './auth.controller';
+import {
+  login,
+  logout,
+  getMe,
+  register,
+  updateProfile,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+} from './auth.controller';
 import { authenticate, authorize } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { loginSchema, registerSchema } from '@pibs/shared';
@@ -16,5 +25,13 @@ router.post(
   validate(registerSchema),
   register
 );
+
+// Profile management (own account)
+router.put('/profile', authenticate, updateProfile);
+router.put('/change-password', authenticate, changePassword);
+
+// Password reset (public — no auth needed)
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 export default router;

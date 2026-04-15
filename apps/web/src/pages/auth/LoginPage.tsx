@@ -1,7 +1,7 @@
 import React from 'react';
 import { Form, Input, Button, Card, Typography, Space, Alert } from 'antd';
 import { UserOutlined, LockOutlined, MedicineBoxOutlined } from '@ant-design/icons';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { useLogin } from '../../hooks/useAuth';
 import { useAuthStore } from '../../store/authStore';
 
@@ -86,7 +86,7 @@ const LoginPage: React.FC = () => {
               />
             </Form.Item>
 
-            <Form.Item style={{ marginBottom: 0 }}>
+            <Form.Item style={{ marginBottom: 8 }}>
               <Button
                 type="primary"
                 htmlType="submit"
@@ -97,6 +97,14 @@ const LoginPage: React.FC = () => {
                 Sign In
               </Button>
             </Form.Item>
+
+            <div style={{ textAlign: 'right' }}>
+              <Link to="/forgot-password">
+                <Button type="link" size="small" style={{ padding: 0 }}>
+                  Forgot password?
+                </Button>
+              </Link>
+            </div>
           </Form>
 
           <Text type="secondary" style={{ display: 'block', textAlign: 'center', fontSize: 12 }}>

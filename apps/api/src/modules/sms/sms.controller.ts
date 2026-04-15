@@ -93,15 +93,14 @@ function seedTemplates(): void {
   }
 }
 
-// Simulate SMS send (replace with real Semaphore API call in production)
-async function simulateSend(
+// Real Semaphore SMS send (falls back to simulation if API key not set)
+import { sendSms as semaphoreSend } from './sms.service';
+
+async function doSend(
   recipient: string,
   message: string
 ): Promise<{ messageId: string; status: string }> {
-  // In production: POST https://api.semaphore.co/api/v4/messages
-  // with apikey, number, message params
-  await new Promise((resolve) => setTimeout(resolve, 100)); // simulate network
-  return { messageId: `SMP-${Date.now()}`, status: 'Queued' };
+  return semaphoreSend(recipient, message);
 }
 
 // Seed on module load
@@ -187,7 +186,7 @@ export const sendSms = asyncHandler(async (req: Request, res: Response) => {
   writeLogs(logs);
 
   try {
-    const result = await simulateSend(recipient, message);
+    const result = await doSend(recipient, message);
     const allLogs = readLogs();
     const idx = allLogs.findIndex((l) => l.id === logEntry.id);
     if (idx !== -1) {
@@ -238,7 +237,7 @@ export const sendBulkSms = asyncHandler(async (req: Request, res: Response) => {
     };
     logs.push(logEntry);
     try {
-      const result = await simulateSend(recipient, message);
+      const result = await doSend(recipient, message);
       logEntry.status = 'SENT';
       logEntry.messageId = result.messageId;
       logEntry.sentAt = new Date().toISOString();
@@ -365,7 +364,7 @@ export const sendAppointmentReminder = asyncHandler(async (req: Request, res: Re
   };
   logs.push(logEntry);
 
-  const result = await simulateSend(patient.phone, message);
+  const result = await doSend(patient.phone, message);
   logEntry.status = 'SENT';
   logEntry.messageId = result.messageId;
   logEntry.sentAt = new Date().toISOString();

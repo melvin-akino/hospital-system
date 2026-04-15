@@ -63,9 +63,10 @@ const LAB_OR_RADIOLOGY  = [...new Set([...LAB_ROLES, ...RADIOLOGY_ROLES])];
 // ── Menu item type ─────────────────────────────────────────────────────────────
 interface RawMenuItem {
   key: string;
-  icon: React.ReactNode;
-  label: string;
+  icon?: React.ReactNode;
+  label?: string;
   roles: string[];
+  type?: 'divider';
   children?: RawMenuItem[];
 }
 
@@ -342,6 +343,11 @@ const rawMenuItems: RawMenuItem[] = [
     ],
   },
   {
+    key: 'admin-divider',
+    type: 'divider',
+    roles: ADMIN_ROLES,
+  },
+  {
     key: 'admin-section',
     icon: <SettingOutlined />,
     label: 'Administration',
@@ -373,10 +379,13 @@ function filterItems(items: RawMenuItem[], userRole: string) {
 
 // Strip custom `roles` field before passing to Ant Design Menu
 function toAntItems(items: RawMenuItem[]): object[] {
-  return items.map(({ roles: _roles, children, ...rest }) => ({
-    ...rest,
-    ...(children ? { children: toAntItems(children) } : {}),
-  }));
+  return items.map(({ roles: _roles, children, ...rest }) => {
+    if (rest.type === 'divider') return { type: 'divider', key: rest.key };
+    return {
+      ...rest,
+      ...(children ? { children: toAntItems(children) } : {}),
+    };
+  });
 }
 
 interface SidebarProps {
