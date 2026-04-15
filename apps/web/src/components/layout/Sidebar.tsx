@@ -396,6 +396,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
+  const { systemName, systemSubtitle, logoUrl, primaryColor, sidebarColor } = useBrandingStore();
   const [openKeys, setOpenKeys] = useState<string[]>(['clinical', 'billing']);
 
   const selectedKey = location.pathname;
@@ -417,7 +418,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       collapsed={collapsed}
       width={240}
       style={{
-        background: '#001529',
+        background: sidebarColor,
         height: '100vh',
         position: 'fixed',
         left: 0,
@@ -440,13 +441,35 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         }}
         onClick={() => navigate('/dashboard')}
       >
-        <MedicineBoxOutlined style={{ fontSize: 24, color: '#1890ff', flexShrink: 0 }} />
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt="logo"
+            style={{
+              height: 32,
+              width: 32,
+              objectFit: 'contain',
+              flexShrink: 0,
+              borderRadius: 4,
+            }}
+          />
+        ) : (
+          <MedicineBoxOutlined style={{ fontSize: 24, color: primaryColor, flexShrink: 0 }} />
+        )}
         {!collapsed && (
-          <div style={{ marginLeft: 8 }}>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, lineHeight: 1.2 }}>
-              iHIMS
+          <div style={{ marginLeft: 8, overflow: 'hidden' }}>
+            <div style={{
+              color: '#fff', fontWeight: 700, fontSize: 15, lineHeight: 1.2,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {systemName}
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>Hospital Info System</div>
+            <div style={{
+              color: 'rgba(255,255,255,0.5)', fontSize: 10,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {systemSubtitle}
+            </div>
           </div>
         )}
       </div>
@@ -459,7 +482,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         onOpenChange={setOpenKeys}
         onClick={handleMenuClick}
         items={visibleItems}
-        style={{ borderRight: 0, paddingTop: 8 }}
+        style={{ borderRight: 0, paddingTop: 8, background: sidebarColor }}
       />
     </Sider>
   );

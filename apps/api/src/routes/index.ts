@@ -33,10 +33,12 @@ import hieRoutes from '../modules/hie/hie.routes';
 import patientPortalRoutes from '../modules/patient-portal/patient-portal.routes';
 import usersRoutes from '../modules/users/users.routes';
 import auditRoutes from '../modules/audit/audit.routes';
+import settingsRoutes from '../modules/settings/settings.routes';
 
 export const router = Router();
 
 router.use('/auth', authRoutes);
+router.use('/', settingsRoutes);   // Public branding must be before any auth-gated routers
 router.use('/patients', patientRoutes);
 router.use('/doctors', doctorRoutes);
 router.use('/services', serviceRoutes);

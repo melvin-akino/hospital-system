@@ -1,8 +1,10 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Spin } from 'antd';
+import { Spin, ConfigProvider } from 'antd';
 import MainLayout from './components/layout/MainLayout';
 import PrivateRoute from './components/layout/PrivateRoute';
+import { useBrandingStore } from './store/brandingStore';
+import { useAuthStore } from './store/authStore';
 
 // Profile & auth extras
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
@@ -178,7 +180,20 @@ const Guard: React.FC<{ roles: string[]; children: React.ReactNode }> = ({ roles
 };
 
 const App: React.FC = () => {
+  const { primaryColor, loadBranding } = useBrandingStore();
+
+  // Load branding once on mount (works even before login)
+  useEffect(() => { loadBranding(); }, [loadBranding]);
+
   return (
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: primaryColor,
+          colorLink: primaryColor,
+        },
+      }}
+    >
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -346,6 +361,7 @@ const App: React.FC = () => {
         </Route>
       </Routes>
     </Suspense>
+    </ConfigProvider>
   );
 };
 

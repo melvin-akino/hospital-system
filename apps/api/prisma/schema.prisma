@@ -38,6 +38,16 @@ model Session {
   @@map("sessions")
 }
 
+// ============ SYSTEM CONFIG ============
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
 model PasswordResetToken {
   id        String    @id @default(uuid())
   userId    String

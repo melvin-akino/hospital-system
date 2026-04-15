@@ -15,9 +15,17 @@ const PORT = process.env.PORT || 3001;
 
 // Security middleware
 app.use(helmet());
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5175')
+  .split(',')
+  .map((o) => o.trim())
+  .concat(['http://localhost:5174', 'http://localhost:5175', 'http://localhost:5173']);
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+      else callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   })
 );

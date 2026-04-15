@@ -4,12 +4,14 @@ import { UserOutlined, LockOutlined, MedicineBoxOutlined } from '@ant-design/ico
 import { Navigate, Link } from 'react-router-dom';
 import { useLogin } from '../../hooks/useAuth';
 import { useAuthStore } from '../../store/authStore';
+import { useBrandingStore } from '../../store/brandingStore';
 
 const { Title, Text } = Typography;
 
 const LoginPage: React.FC = () => {
   const { mutate: login, isPending, error } = useLogin();
   const { isAuthenticated } = useAuthStore();
+  const { systemName, systemSubtitle, logoUrl, primaryColor } = useBrandingStore();
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
@@ -25,7 +27,7 @@ const LoginPage: React.FC = () => {
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #001529 0%, #003a8c 50%, #1890ff 100%)',
+        background: `linear-gradient(135deg, #001529 0%, #003a8c 50%, ${primaryColor} 100%)`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -42,14 +44,22 @@ const LoginPage: React.FC = () => {
         styles={{ body: { padding: '40px 32px' } }}
       >
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Logo */}
+          {/* Logo / Brand */}
           <div style={{ textAlign: 'center' }}>
-            <MedicineBoxOutlined style={{ fontSize: 48, color: '#1890ff' }} />
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={systemName}
+                style={{ height: 64, maxWidth: 200, objectFit: 'contain', marginBottom: 8 }}
+              />
+            ) : (
+              <MedicineBoxOutlined style={{ fontSize: 48, color: primaryColor }} />
+            )}
             <Title level={2} style={{ margin: '8px 0 0', color: '#001529' }}>
-              iHIMS
+              {systemName}
             </Title>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              intelligent Hospital Information System
+              {systemSubtitle}
             </Text>
           </div>
 
@@ -108,7 +118,7 @@ const LoginPage: React.FC = () => {
           </Form>
 
           <Text type="secondary" style={{ display: 'block', textAlign: 'center', fontSize: 12 }}>
-            &copy; {new Date().getFullYear()} iHIMS
+            &copy; {new Date().getFullYear()} {systemName}
           </Text>
         </Space>
       </Card>
