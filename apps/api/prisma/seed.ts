@@ -422,8 +422,123 @@ async function main() {
   }
   console.log('Created SMS templates');
 
+  // 12. More staff users
+  const extraStaff = [
+    { username: 'pharmacist1', email: 'pharmacist@pibs.ph', role: 'PHARMACIST' as const },
+    { username: 'labtech1', email: 'labtech@pibs.ph', role: 'LAB_TECH' as const },
+    { username: 'radtech1', email: 'radtech@pibs.ph', role: 'RADIOLOGY_TECH' as const },
+    { username: 'nurse2', email: 'nurse2@pibs.ph', role: 'NURSE' as const },
+    { username: 'admin2', email: 'admin2@pibs.ph', role: 'ADMIN' as const },
+  ];
+  for (const s of extraStaff) {
+    const hash = await bcrypt.hash('pibs2024', 12);
+    await prisma.user.upsert({ where: { username: s.username }, update: {}, create: { ...s, passwordHash: hash } });
+  }
+  console.log('Created extra staff users');
+
+  // 13. Rooms (actual room instances)
+  const roomTypeRecords = await prisma.roomType.findMany();
+  const rtMap: Record<string, string> = {};
+  for (const rt of roomTypeRecords) rtMap[rt.name] = rt.id;
+
+  const rooms = [
+    { roomNumber: '101', floor: '1', building: 'Main', roomTypeId: rtMap['Private Room'], isOccupied: false },
+    { roomNumber: '102', floor: '1', building: 'Main', roomTypeId: rtMap['Private Room'], isOccupied: false },
+    { roomNumber: '103', floor: '1', building: 'Main', roomTypeId: rtMap['Private Room'], isOccupied: false },
+    { roomNumber: '201', floor: '2', building: 'Main', roomTypeId: rtMap['Semi-Private Room'], isOccupied: false },
+    { roomNumber: '202', floor: '2', building: 'Main', roomTypeId: rtMap['Semi-Private Room'], isOccupied: false },
+    { roomNumber: '203', floor: '2', building: 'Main', roomTypeId: rtMap['Semi-Private Room'], isOccupied: false },
+    { roomNumber: 'W1A', floor: '1', building: 'Wing A', roomTypeId: rtMap['Ward'], isOccupied: false },
+    { roomNumber: 'W1B', floor: '1', building: 'Wing A', roomTypeId: rtMap['Ward'], isOccupied: false },
+    { roomNumber: 'ICU-1', floor: '3', building: 'Main', roomTypeId: rtMap['ICU'], isOccupied: false },
+    { roomNumber: 'ICU-2', floor: '3', building: 'Main', roomTypeId: rtMap['ICU'], isOccupied: false },
+    { roomNumber: 'NICU-1', floor: '3', building: 'Main', roomTypeId: rtMap['NICU'], isOccupied: false },
+    { roomNumber: 'OR-1', floor: '4', building: 'Main', roomTypeId: rtMap['OR Suite'], isOccupied: false },
+    { roomNumber: 'OR-2', floor: '4', building: 'Main', roomTypeId: rtMap['OR Suite'], isOccupied: false },
+  ];
+  for (const room of rooms) {
+    if (!room.roomTypeId) continue;
+    const existing = await prisma.room.findUnique({ where: { roomNumber: room.roomNumber } });
+    if (!existing) await prisma.room.create({ data: room });
+  }
+  console.log('Created rooms');
+
+  // 14. More sample patients (10 additional)
+  const morePatients = [
+    { patientNo: 'PAT-000004', firstName: 'Luisa', lastName: 'Mendoza', dateOfBirth: new Date('1972-05-10'), gender: 'FEMALE' as const, phone: '09174444444', city: 'Pasig', philhealthNo: 'PH-22-111222333' },
+    { patientNo: 'PAT-000005', firstName: 'Roberto', lastName: 'Villanueva', dateOfBirth: new Date('1965-09-25'), gender: 'MALE' as const, phone: '09285555555', isSenior: false, city: 'Makati' },
+    { patientNo: 'PAT-000006', firstName: 'Celine', lastName: 'Aguilar', dateOfBirth: new Date('1998-01-30'), gender: 'FEMALE' as const, phone: '09396666666', city: 'Mandaluyong' },
+    { patientNo: 'PAT-000007', firstName: 'Danilo', lastName: 'Bautista', dateOfBirth: new Date('1955-11-08'), gender: 'MALE' as const, phone: '09177777777', isSenior: true, seniorIdNo: 'SC-2015-004', city: 'Marikina' },
+    { patientNo: 'PAT-000008', firstName: 'Elena', lastName: 'Castillo', dateOfBirth: new Date('1989-07-14'), gender: 'FEMALE' as const, phone: '09288888888', city: 'Taguig' },
+    { patientNo: 'PAT-000009', firstName: 'Fernando', lastName: 'Dela Torre', dateOfBirth: new Date('1945-03-22'), gender: 'MALE' as const, phone: '09399999999', isSenior: true, seniorIdNo: 'SC-2010-005', philhealthNo: 'PH-33-444555666', city: 'Caloocan' },
+    { patientNo: 'PAT-000010', firstName: 'Gloria', lastName: 'Espiritu', dateOfBirth: new Date('2005-08-18'), gender: 'FEMALE' as const, phone: '09170000001', city: 'Las Pinas' },
+    { patientNo: 'PAT-000011', firstName: 'Hector', lastName: 'Flores', dateOfBirth: new Date('1978-12-05'), gender: 'MALE' as const, phone: '09281111112', isPwd: true, pwdIdNo: 'PWD-2019-002', city: 'Paranaque' },
+    { patientNo: 'PAT-000012', firstName: 'Irene', lastName: 'Garcia', dateOfBirth: new Date('1992-04-27'), gender: 'FEMALE' as const, phone: '09392222223', city: 'Valenzuela' },
+    { patientNo: 'PAT-000013', firstName: 'Jose', lastName: 'Hernandez', dateOfBirth: new Date('1960-06-15'), gender: 'MALE' as const, phone: '09173333334', city: 'Malabon' },
+  ];
+  for (const p of morePatients) {
+    const existing = await prisma.patient.findUnique({ where: { patientNo: p.patientNo } });
+    if (!existing) await prisma.patient.create({ data: p });
+  }
+  console.log('Created additional patients');
+
+  // 15. Sample medications + inventory
+  const medications = [
+    { genericName: 'Amoxicillin', brandName: 'Amoxil', dosageForm: 'Capsule', strength: '500mg', stock: 500, minStock: 100, unitCost: 5.5, price: 12.0, unit: 'capsule' },
+    { genericName: 'Paracetamol', brandName: 'Biogesic', dosageForm: 'Tablet', strength: '500mg', stock: 1000, minStock: 200, unitCost: 1.5, price: 4.0, unit: 'tablet' },
+    { genericName: 'Amlodipine', brandName: 'Norvasc', dosageForm: 'Tablet', strength: '5mg', stock: 300, minStock: 100, unitCost: 8.0, price: 18.0, unit: 'tablet' },
+    { genericName: 'Metformin', brandName: 'Glucophage', dosageForm: 'Tablet', strength: '500mg', stock: 400, minStock: 100, unitCost: 5.0, price: 12.0, unit: 'tablet' },
+    { genericName: 'Losartan', brandName: 'Cozaar', dosageForm: 'Tablet', strength: '50mg', stock: 250, minStock: 80, unitCost: 9.0, price: 22.0, unit: 'tablet' },
+    { genericName: 'Salbutamol', brandName: 'Ventolin', dosageForm: 'Inhaler', strength: '100mcg/dose', stock: 50, minStock: 20, unitCost: 120.0, price: 280.0, unit: 'inhaler' },
+    { genericName: 'Omeprazole', brandName: 'Losec', dosageForm: 'Capsule', strength: '20mg', stock: 350, minStock: 100, unitCost: 10.0, price: 25.0, unit: 'capsule' },
+    { genericName: 'Atorvastatin', brandName: 'Lipitor', dosageForm: 'Tablet', strength: '20mg', stock: 200, minStock: 80, unitCost: 12.0, price: 30.0, unit: 'tablet' },
+    { genericName: 'Cefuroxime', brandName: 'Zinnat', dosageForm: 'Tablet', strength: '250mg', stock: 150, minStock: 50, unitCost: 20.0, price: 48.0, unit: 'tablet' },
+    { genericName: 'Ibuprofen', brandName: 'Advil', dosageForm: 'Tablet', strength: '400mg', stock: 600, minStock: 150, unitCost: 3.5, price: 8.0, unit: 'tablet' },
+    { genericName: 'Insulin Glargine', brandName: 'Lantus', dosageForm: 'Injection', strength: '100 IU/mL', stock: 30, minStock: 10, unitCost: 850.0, price: 1800.0, unit: 'vial' },
+    { genericName: 'IV Fluid NaCl 0.9%', brandName: 'Baxter', dosageForm: 'IV Solution', strength: '0.9%', stock: 200, minStock: 50, unitCost: 45.0, price: 95.0, unit: 'bag (1L)' },
+  ];
+  let medIdx = 0;
+  for (const med of medications) {
+    const existing = await prisma.medication.findFirst({ where: { genericName: med.genericName, strength: med.strength } });
+    if (!existing) {
+      const created = await prisma.medication.create({
+        data: { genericName: med.genericName, brandName: med.brandName, dosageForm: med.dosageForm, strength: med.strength },
+      });
+      await prisma.inventoryItem.create({
+        data: {
+          medicationId: created.id,
+          itemName: `${med.genericName} ${med.strength}`,
+          itemCode: `MED-${String(++medIdx).padStart(4, '0')}`,
+          unit: med.unit,
+          currentStock: med.stock,
+          minimumStock: med.minStock,
+          unitCost: med.unitCost,
+          sellingPrice: med.price,
+          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          batchNo: `BATCH-${Date.now().toString().slice(-6)}`,
+          location: 'Main Pharmacy',
+        },
+      });
+    } else { medIdx++; }
+  }
+  console.log('Created medications and inventory');
+
+  // 16. Dialysis machines
+  const dialysisMachines = [
+    { machineCode: 'DM-001', model: 'Fresenius 5008S', status: 'AVAILABLE' },
+    { machineCode: 'DM-002', model: 'Fresenius 5008S', status: 'AVAILABLE' },
+    { machineCode: 'DM-003', model: 'Nipro NCV-12', status: 'AVAILABLE' },
+    { machineCode: 'DM-004', model: 'Nipro NCV-12', status: 'AVAILABLE' },
+  ];
+  for (const m of dialysisMachines) {
+    const existing = await prisma.dialysisMachine.findFirst({ where: { machineCode: m.machineCode } });
+    if (!existing) await prisma.dialysisMachine.create({ data: m });
+  }
+  console.log('Created dialysis machines');
+
   console.log('\nSeed completed successfully!');
   console.log('Default login: admin / admin123');
+  console.log('Staff logins: billing1, nurse1, nurse2, pharmacist1, labtech1 / pibs2024');
   console.log('Doctor logins: dr.santos, dr.reyes, dr.cruz / doctor123');
 }
 

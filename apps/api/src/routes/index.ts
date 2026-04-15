@@ -31,6 +31,8 @@ import onlinePaymentRoutes from '../modules/payments/payments.routes';
 import appointmentRoutes from '../modules/appointments/appointments.routes';
 import hieRoutes from '../modules/hie/hie.routes';
 import patientPortalRoutes from '../modules/patient-portal/patient-portal.routes';
+import usersRoutes from '../modules/users/users.routes';
+import auditRoutes from '../modules/audit/audit.routes';
 
 export const router = Router();
 
@@ -78,6 +80,8 @@ router.use('/', onlinePaymentRoutes);
 router.use('/', appointmentRoutes);
 router.use('/', hieRoutes);
 router.use('/', patientPortalRoutes);
+router.use('/', usersRoutes);
+router.use('/', auditRoutes);
 
 // API info
 router.get('/', (_req, res) => {

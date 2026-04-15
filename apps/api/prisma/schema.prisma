@@ -98,6 +98,7 @@ model Patient {
   transfusions     Transfusion[]
   appointments     Appointment[]
   queueEntries     QueueEntry[]
+  carePlans        NursingCarePlan[]
   radiologyOrders  RadiologyOrder[]
 
   @@map("patients")
@@ -586,6 +587,7 @@ model Admission {
   notes           String?
   patient         Patient         @relation(fields: [patientId], references: [id])
   room            Room?           @relation(fields: [roomId], references: [id])
+  carePlans       NursingCarePlan[]
 
   @@map("admissions")
 }
@@ -964,4 +966,57 @@ enum RequisitionStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+// ============ NURSING (DB-backed) ============
+model NursingCarePlan {
+  id            String    @id @default(uuid())
+  patientId     String
+  admissionId   String?
+  nurseUsername String?
+  title         String
+  goals         String
+  interventions String
+  evaluation    String?
+  startDate     DateTime  @default(now())
+  endDate       DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  admission Admission? @relation(fields: [admissionId], references: [id])
+
+  @@map("nursing_care_plans")
+}
+
+model ShiftHandover {
+  id               String   @id @default(uuid())
+  ward             String
+  shift            String
+  handoverDate     DateTime @default(now())
+  handingNurse     String
+  receivingNurse   String
+  summary          String
+  criticalPatients Json     @default("[]")
+  pendingTasks     Json     @default("[]")
+  createdAt        DateTime @default(now())
+
+  @@map("shift_handovers")
+}
+
+// ============ AUDIT LOG ============
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  username  String?
+  action    String
+  module    String
+  recordId  String?
+  details   String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
 }

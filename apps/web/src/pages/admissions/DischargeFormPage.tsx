@@ -1,9 +1,10 @@
 import React from 'react';
 import { Card, Form, Input, Button, Typography, Row, Col, Space, DatePicker, Descriptions, Tag } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useAdmission, useDischargePatient } from '../../hooks/useAdmissions';
+import { exportDischargePDF } from '../../utils/pdfExport';
 
 const { Title, Text } = Typography;
 
@@ -84,6 +85,24 @@ const DischargeFormPage: React.FC = () => {
             <Button type="primary" danger htmlType="submit" loading={discharge.isPending}>
               Confirm Discharge
             </Button>
+            {admission.status === 'DISCHARGED' && (
+              <Button
+                icon={<FilePdfOutlined />}
+                onClick={() => exportDischargePDF({
+                  admissionNo: admission.admissionNo,
+                  patient: admission.patient,
+                  room: admission.room,
+                  attendingDoctor: admission.attendingDoctor,
+                  admittedAt: admission.admittedAt,
+                  dischargedAt: admission.dischargedAt || new Date().toISOString(),
+                  diagnosis: admission.diagnosis,
+                  notes: admission.notes,
+                  dischargeNotes: admission.dischargeNotes,
+                })}
+              >
+                Download Discharge Summary PDF
+              </Button>
+            )}
             <Button onClick={() => navigate('/admissions/list')}>Cancel</Button>
           </Space>
         </Form>

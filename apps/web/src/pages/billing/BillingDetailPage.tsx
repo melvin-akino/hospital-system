@@ -11,6 +11,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useBill, useAddPayment, useFinalizeBill, useCancelBill } from '../../hooks/useBilling';
 import type { BillItem, Payment } from '../../types';
+import { exportBillPDF } from '../../utils/pdfExport';
 
 const { Title, Text } = Typography;
 
@@ -97,7 +98,27 @@ const BillingDetailPage: React.FC = () => {
                 <Button danger icon={<StopOutlined />} loading={cancelling}>Cancel</Button>
               </Popconfirm>
             )}
-            <Button icon={<PrinterOutlined />} onClick={() => window.print()}>Print</Button>
+            <Button
+              icon={<PrinterOutlined />}
+              onClick={() => exportBillPDF({
+                billNo: bill.billNo,
+                createdAt: bill.createdAt,
+                patient: bill.patient,
+                items: bill.items.map((i: BillItem) => ({ serviceName: i.serviceName || i.description || '—', quantity: i.quantity, unitPrice: Number(i.unitPrice), total: Number(i.total) })),
+                subtotal: Number(bill.subtotal),
+                seniorDiscount: bill.seniorDiscount ? Number(bill.seniorDiscount) : undefined,
+                pwdDiscount: bill.pwdDiscount ? Number(bill.pwdDiscount) : undefined,
+                philhealthDeduction: bill.philhealthDeduction ? Number(bill.philhealthDeduction) : undefined,
+                hmoDeduction: bill.hmoDeduction ? Number(bill.hmoDeduction) : undefined,
+                totalAmount: Number(bill.totalAmount),
+                amountPaid: Number(bill.amountPaid),
+                balance: Number(bill.totalAmount) - Number(bill.amountPaid),
+                status: bill.status,
+                payments: bill.payments?.map((p: Payment) => ({ method: p.method, amount: Number(p.amount), paidAt: p.paidAt || p.createdAt })),
+              })}
+            >
+              Download PDF
+            </Button>
           </Space>
         </Col>
       </Row>

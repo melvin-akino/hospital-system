@@ -40,6 +40,8 @@ import {
   CreditCardOutlined,
   ShareAltOutlined,
   GlobalOutlined,
+  ApartmentOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
@@ -299,9 +301,14 @@ const menuItems = [
     ],
   },
   {
-    key: '/settings',
+    key: 'admin-section',
     icon: <SettingOutlined />,
-    label: 'Settings',
+    label: 'Administration',
+    children: [
+      { key: '/settings', icon: <SettingOutlined />, label: 'Settings' },
+      { key: '/users', icon: <ApartmentOutlined />, label: 'User Management' },
+      { key: '/audit-log', icon: <FileSearchOutlined />, label: 'Audit Log' },
+    ],
   },
 ];
 

@@ -135,6 +135,11 @@ const HIEDashboardPage = lazy(() => import('./pages/hie/HIEDashboardPage'));
 // Departments
 const DepartmentListPage = lazy(() => import('./pages/departments/DepartmentListPage'));
 
+// Settings, User Management, Audit Log
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
+const UserManagementPage = lazy(() => import('./pages/users/UserManagementPage'));
+const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage'));
+
 const LoadingFallback = () => (
   <div
     style={{
@@ -289,6 +294,11 @@ const App: React.FC = () => {
 
           {/* Departments */}
           <Route path="/departments" element={<DepartmentListPage />} />
+
+          {/* Settings, User Management, Audit Log */}
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/users" element={<UserManagementPage />} />
+          <Route path="/audit-log" element={<AuditLogPage />} />
 
           {/* Phase 7: SMS */}
           <Route path="/sms" element={<SMSDashboardPage />} />
