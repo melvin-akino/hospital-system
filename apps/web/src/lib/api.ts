@@ -24,8 +24,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      // Clear ALL auth storage including Zustand's persisted state
       localStorage.removeItem('pibs_token');
       localStorage.removeItem('pibs_user');
+      localStorage.removeItem('pibs_auth'); // Zustand persist key — prevents the login↔dashboard loop
       window.location.href = '/login';
     }
     return Promise.reject(error);

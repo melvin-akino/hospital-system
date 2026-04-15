@@ -5,6 +5,7 @@ import MainLayout from './components/layout/MainLayout';
 import PrivateRoute from './components/layout/PrivateRoute';
 
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const UnauthorizedPage = lazy(() => import('./pages/auth/UnauthorizedPage'));
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const PatientListPage = lazy(() => import('./pages/patients/PatientListPage'));
 const PatientFormPage = lazy(() => import('./pages/patients/PatientFormPage'));
@@ -153,13 +154,33 @@ const LoadingFallback = () => (
   </div>
 );
 
+// Role sets for convenience
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+const CLINICAL_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
+const BILLING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING', 'RECEPTIONIST'];
+const PHARMACY_ROLES = ['SUPER_ADMIN', 'ADMIN', 'PHARMACIST'];
+const LAB_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'LAB_TECH'];
+const RADIOLOGY_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RADIOLOGY_TECH'];
+const NURSING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR'];
+const ACCOUNTING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING'];
+const ALL_STAFF = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGY_TECH'];
+
+// Helper to wrap a route element with an inline role guard (avoids nesting Route/Route issues)
+const Guard: React.FC<{ roles: string[]; children: React.ReactNode }> = ({ roles, children }) => {
+  const { user } = useAuthStore();
+  if (!user || !roles.includes(user.role)) return <Navigate to="/unauthorized" replace />;
+  return <>{children}</>;
+};
+
 const App: React.FC = () => {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
+        {/* All authenticated routes share MainLayout */}
         <Route
           element={
             <PrivateRoute>
@@ -167,153 +188,148 @@ const App: React.FC = () => {
             </PrivateRoute>
           }
         >
+          {/* Dashboard — all staff */}
           <Route path="/dashboard" element={<DashboardPage />} />
 
-          {/* Patients */}
-          <Route path="/patients" element={<PatientListPage />} />
-          <Route path="/patients/new" element={<PatientFormPage />} />
-          <Route path="/patients/:id/edit" element={<PatientFormPage />} />
-          <Route path="/patients/:id" element={<PatientDetailPage />} />
+          {/* ── Clinical (all clinical staff) ── */}
+          <Route path="/patients" element={<Guard roles={CLINICAL_ROLES}><PatientListPage /></Guard>} />
+          <Route path="/patients/new" element={<Guard roles={CLINICAL_ROLES}><PatientFormPage /></Guard>} />
+          <Route path="/patients/:id/edit" element={<Guard roles={CLINICAL_ROLES}><PatientFormPage /></Guard>} />
+          <Route path="/patients/:id" element={<Guard roles={CLINICAL_ROLES}><PatientDetailPage /></Guard>} />
+          <Route path="/doctors" element={<Guard roles={ALL_STAFF}><DoctorListPage /></Guard>} />
+          <Route path="/doctors/new" element={<Guard roles={ADMIN_ROLES}><DoctorFormPage /></Guard>} />
+          <Route path="/doctors/:id/edit" element={<Guard roles={ADMIN_ROLES}><DoctorFormPage /></Guard>} />
+          <Route path="/doctors/:id" element={<Guard roles={ALL_STAFF}><DoctorProfilePage /></Guard>} />
+          <Route path="/departments" element={<Guard roles={ALL_STAFF}><DepartmentListPage /></Guard>} />
+          <Route path="/consultations" element={<Guard roles={CLINICAL_ROLES}><ConsultationListPage /></Guard>} />
+          <Route path="/consultations/new" element={<Guard roles={CLINICAL_ROLES}><ConsultationFormPage /></Guard>} />
+          <Route path="/consultations/:id" element={<Guard roles={CLINICAL_ROLES}><ConsultationDetailPage /></Guard>} />
+          <Route path="/consultations/:id/edit" element={<Guard roles={CLINICAL_ROLES}><ConsultationFormPage /></Guard>} />
 
-          {/* Doctors */}
-          <Route path="/doctors" element={<DoctorListPage />} />
-          <Route path="/doctors/new" element={<DoctorFormPage />} />
-          <Route path="/doctors/:id/edit" element={<DoctorFormPage />} />
-          <Route path="/doctors/:id" element={<DoctorProfilePage />} />
+          {/* ── EMR ── */}
+          <Route path="/emr/:patientId" element={<Guard roles={CLINICAL_ROLES}><EMRDashboard /></Guard>} />
 
-          {/* Services */}
-          <Route path="/services" element={<ServiceListPage />} />
-          <Route path="/services/new" element={<ServiceFormPage />} />
-          <Route path="/services/:id/edit" element={<ServiceFormPage />} />
+          {/* ── Services ── */}
+          <Route path="/services" element={<Guard roles={ALL_STAFF}><ServiceListPage /></Guard>} />
+          <Route path="/services/new" element={<Guard roles={ADMIN_ROLES}><ServiceFormPage /></Guard>} />
+          <Route path="/services/:id/edit" element={<Guard roles={ADMIN_ROLES}><ServiceFormPage /></Guard>} />
 
-          {/* Consultations */}
-          <Route path="/consultations" element={<ConsultationListPage />} />
-          <Route path="/consultations/new" element={<ConsultationFormPage />} />
-          <Route path="/consultations/:id" element={<ConsultationDetailPage />} />
-          <Route path="/consultations/:id/edit" element={<ConsultationFormPage />} />
+          {/* ── Billing ── */}
+          <Route path="/billing" element={<Guard roles={BILLING_ROLES}><BillingListPage /></Guard>} />
+          <Route path="/billing/new" element={<Guard roles={BILLING_ROLES}><BillingFormPage /></Guard>} />
+          <Route path="/billing/:id" element={<Guard roles={BILLING_ROLES}><BillingDetailPage /></Guard>} />
 
-          {/* Billing */}
-          <Route path="/billing" element={<BillingListPage />} />
-          <Route path="/billing/new" element={<BillingFormPage />} />
-          <Route path="/billing/:id" element={<BillingDetailPage />} />
+          {/* ── Laboratory & Radiology ── */}
+          <Route path="/lab/requisitions" element={<Guard roles={LAB_ROLES}><LabRequisitionListPage /></Guard>} />
+          <Route path="/lab/requisitions/new" element={<Guard roles={LAB_ROLES}><LabOrderFormPage /></Guard>} />
+          <Route path="/lab/results" element={<Guard roles={LAB_ROLES}><LabResultViewPage /></Guard>} />
+          <Route path="/lab/results/entry/:requisitionId" element={<Guard roles={LAB_ROLES}><LabResultEntryPage /></Guard>} />
+          <Route path="/lab/radiology/new" element={<Guard roles={RADIOLOGY_ROLES}><RadiologyOrderFormPage /></Guard>} />
 
-          {/* Phase 2: EMR */}
-          <Route path="/emr/:patientId" element={<EMRDashboard />} />
+          {/* ── Pharmacy ── */}
+          <Route path="/pharmacy/medications" element={<Guard roles={PHARMACY_ROLES}><MedicationCatalogPage /></Guard>} />
+          <Route path="/pharmacy/inventory" element={<Guard roles={PHARMACY_ROLES}><InventoryDashboardPage /></Guard>} />
+          <Route path="/pharmacy/purchase-orders/new" element={<Guard roles={PHARMACY_ROLES}><PurchaseOrderFormPage /></Guard>} />
+          <Route path="/pharmacy/alerts" element={<Guard roles={PHARMACY_ROLES}><StockAlertsPage /></Guard>} />
 
-          {/* Phase 2: Laboratory & Radiology */}
-          <Route path="/lab/requisitions" element={<LabRequisitionListPage />} />
-          <Route path="/lab/requisitions/new" element={<LabOrderFormPage />} />
-          <Route path="/lab/results" element={<LabResultViewPage />} />
-          <Route path="/lab/results/entry/:requisitionId" element={<LabResultEntryPage />} />
-          <Route path="/lab/radiology/new" element={<RadiologyOrderFormPage />} />
+          {/* ── Queue ── */}
+          <Route path="/queue/display" element={<Guard roles={CLINICAL_ROLES}><QueueDisplayPage /></Guard>} />
+          <Route path="/queue/management" element={<Guard roles={CLINICAL_ROLES}><QueueManagementPage /></Guard>} />
 
-          {/* Phase 2: Pharmacy & Inventory */}
-          <Route path="/pharmacy/medications" element={<MedicationCatalogPage />} />
-          <Route path="/pharmacy/inventory" element={<InventoryDashboardPage />} />
-          <Route path="/pharmacy/purchase-orders/new" element={<PurchaseOrderFormPage />} />
-          <Route path="/pharmacy/alerts" element={<StockAlertsPage />} />
+          {/* ── HMO ── */}
+          <Route path="/hmo/registrations" element={<Guard roles={BILLING_ROLES}><HMORegistrationPage /></Guard>} />
+          <Route path="/hmo/claims" element={<Guard roles={BILLING_ROLES}><HMOClaimsPage /></Guard>} />
+          <Route path="/hmo/claims/new" element={<Guard roles={BILLING_ROLES}><HMOClaimFormPage /></Guard>} />
+          <Route path="/hmo/eligibility" element={<Guard roles={BILLING_ROLES}><EligibilityCheckPage /></Guard>} />
+          <Route path="/hmo/direct-billing" element={<Guard roles={BILLING_ROLES}><HMODirectBillingPage /></Guard>} />
 
-          {/* Phase 2: Queue Management */}
-          <Route path="/queue/display" element={<QueueDisplayPage />} />
-          <Route path="/queue/management" element={<QueueManagementPage />} />
+          {/* ── PhilHealth ── */}
+          <Route path="/philhealth/claims" element={<Guard roles={BILLING_ROLES}><PhilHealthClaimsPage /></Guard>} />
+          <Route path="/philhealth/claims/new" element={<Guard roles={BILLING_ROLES}><PhilHealthClaimFormPage /></Guard>} />
+          <Route path="/philhealth/case-rates" element={<Guard roles={BILLING_ROLES}><CaseRatesPage /></Guard>} />
+          <Route path="/philhealth/eclaims" element={<Guard roles={BILLING_ROLES}><EClaimsPage /></Guard>} />
 
-          {/* Phase 2: HMO Processing */}
-          <Route path="/hmo/registrations" element={<HMORegistrationPage />} />
-          <Route path="/hmo/claims" element={<HMOClaimsPage />} />
-          <Route path="/hmo/claims/new" element={<HMOClaimFormPage />} />
-          <Route path="/hmo/eligibility" element={<EligibilityCheckPage />} />
+          {/* ── Accounting ── */}
+          <Route path="/accounting/chart-of-accounts" element={<Guard roles={ACCOUNTING_ROLES}><ChartOfAccountsPage /></Guard>} />
+          <Route path="/accounting/journal-entry" element={<Guard roles={ACCOUNTING_ROLES}><GLEntryFormPage /></Guard>} />
+          <Route path="/accounting/trial-balance" element={<Guard roles={ACCOUNTING_ROLES}><TrialBalancePage /></Guard>} />
+          <Route path="/accounting/income-statement" element={<Guard roles={ACCOUNTING_ROLES}><IncomeStatementPage /></Guard>} />
+          <Route path="/accounting/balance-sheet" element={<Guard roles={ACCOUNTING_ROLES}><BalanceSheetPage /></Guard>} />
 
-          {/* Phase 3: PhilHealth Claims */}
-          <Route path="/philhealth/claims" element={<PhilHealthClaimsPage />} />
-          <Route path="/philhealth/claims/new" element={<PhilHealthClaimFormPage />} />
-          <Route path="/philhealth/case-rates" element={<CaseRatesPage />} />
+          {/* ── Analytics ── */}
+          <Route path="/analytics" element={<Guard roles={ACCOUNTING_ROLES}><AnalyticsDashboard /></Guard>} />
+          <Route path="/analytics/revenue" element={<Guard roles={ACCOUNTING_ROLES}><RevenueReportPage /></Guard>} />
+          <Route path="/analytics/patients" element={<Guard roles={ACCOUNTING_ROLES}><PatientMetricsPage /></Guard>} />
+          <Route path="/analytics/doctors" element={<Guard roles={ACCOUNTING_ROLES}><DoctorPerformancePage /></Guard>} />
 
-          {/* Phase 3: Accounting / GL */}
-          <Route path="/accounting/chart-of-accounts" element={<ChartOfAccountsPage />} />
-          <Route path="/accounting/journal-entry" element={<GLEntryFormPage />} />
-          <Route path="/accounting/trial-balance" element={<TrialBalancePage />} />
-          <Route path="/accounting/income-statement" element={<IncomeStatementPage />} />
-          <Route path="/accounting/balance-sheet" element={<BalanceSheetPage />} />
+          {/* ── Admissions ── */}
+          <Route path="/admissions/rooms" element={<Guard roles={CLINICAL_ROLES}><RoomsDashboardPage /></Guard>} />
+          <Route path="/admissions/list" element={<Guard roles={CLINICAL_ROLES}><AdmissionsListPage /></Guard>} />
+          <Route path="/admissions/new" element={<Guard roles={CLINICAL_ROLES}><AdmissionFormPage /></Guard>} />
+          <Route path="/admissions/:id/discharge" element={<Guard roles={CLINICAL_ROLES}><DischargeFormPage /></Guard>} />
 
-          {/* Phase 3: Analytics & BI */}
-          <Route path="/analytics" element={<AnalyticsDashboard />} />
-          <Route path="/analytics/revenue" element={<RevenueReportPage />} />
-          <Route path="/analytics/patients" element={<PatientMetricsPage />} />
-          <Route path="/analytics/doctors" element={<DoctorPerformancePage />} />
+          {/* ── Operating Room ── */}
+          <Route path="/or/schedule" element={<Guard roles={CLINICAL_ROLES}><ORSchedulePage /></Guard>} />
+          <Route path="/or/schedule/new" element={<Guard roles={['SUPER_ADMIN', 'ADMIN', 'DOCTOR']}><SurgeryFormPage /></Guard>} />
+          <Route path="/or/checklist/:surgeryId" element={<Guard roles={CLINICAL_ROLES}><WHOChecklistPage /></Guard>} />
 
-          {/* Phase 4: Rooms & Admissions */}
-          <Route path="/admissions/rooms" element={<RoomsDashboardPage />} />
-          <Route path="/admissions/list" element={<AdmissionsListPage />} />
-          <Route path="/admissions/new" element={<AdmissionFormPage />} />
-          <Route path="/admissions/:id/discharge" element={<DischargeFormPage />} />
+          {/* ── Blood Bank ── */}
+          <Route path="/bloodbank/inventory" element={<Guard roles={CLINICAL_ROLES}><BloodInventoryPage /></Guard>} />
+          <Route path="/bloodbank/donors" element={<Guard roles={CLINICAL_ROLES}><DonorDatabasePage /></Guard>} />
+          <Route path="/bloodbank/transfusions" element={<Guard roles={CLINICAL_ROLES}><TransfusionRequestPage /></Guard>} />
 
-          {/* Phase 4: OR Scheduler */}
-          <Route path="/or/schedule" element={<ORSchedulePage />} />
-          <Route path="/or/schedule/new" element={<SurgeryFormPage />} />
-          <Route path="/or/checklist/:surgeryId" element={<WHOChecklistPage />} />
+          {/* ── Assets ── */}
+          <Route path="/assets" element={<Guard roles={ADMIN_ROLES}><AssetInventoryPage /></Guard>} />
+          <Route path="/assets/new" element={<Guard roles={ADMIN_ROLES}><AssetFormPage /></Guard>} />
+          <Route path="/assets/:id/edit" element={<Guard roles={ADMIN_ROLES}><AssetFormPage /></Guard>} />
+          <Route path="/assets/:assetId/maintenance" element={<Guard roles={ADMIN_ROLES}><MaintenanceFormPage /></Guard>} />
+          <Route path="/assets/depreciation" element={<Guard roles={ADMIN_ROLES}><DepreciationReportPage /></Guard>} />
 
-          {/* Phase 4: Blood Bank */}
-          <Route path="/bloodbank/inventory" element={<BloodInventoryPage />} />
-          <Route path="/bloodbank/donors" element={<DonorDatabasePage />} />
-          <Route path="/bloodbank/transfusions" element={<TransfusionRequestPage />} />
+          {/* ── Dialysis ── */}
+          <Route path="/dialysis/schedule" element={<Guard roles={CLINICAL_ROLES}><DialysisSchedulePage /></Guard>} />
+          <Route path="/dialysis/sessions/new" element={<Guard roles={CLINICAL_ROLES}><SessionFormPage /></Guard>} />
+          <Route path="/dialysis/active" element={<Guard roles={CLINICAL_ROLES}><ActiveSessionsPage /></Guard>} />
+          <Route path="/dialysis/machines" element={<Guard roles={ADMIN_ROLES}><MachineManagementPage /></Guard>} />
 
-          {/* Phase 4: Asset Management */}
-          <Route path="/assets" element={<AssetInventoryPage />} />
-          <Route path="/assets/new" element={<AssetFormPage />} />
-          <Route path="/assets/:id/edit" element={<AssetFormPage />} />
-          <Route path="/assets/:assetId/maintenance" element={<MaintenanceFormPage />} />
-          <Route path="/assets/depreciation" element={<DepreciationReportPage />} />
+          {/* ── Compliance ── */}
+          <Route path="/doh/reporting" element={<Guard roles={ADMIN_ROLES}><DOHReportingPage /></Guard>} />
+          <Route path="/barcode/scanner" element={<Guard roles={CLINICAL_ROLES}><BarcodeScannerPage /></Guard>} />
+          <Route path="/barcode/wristband" element={<Guard roles={CLINICAL_ROLES}><PatientWristbandPage /></Guard>} />
 
-          {/* Phase 4: Dialysis Center */}
-          <Route path="/dialysis/schedule" element={<DialysisSchedulePage />} />
-          <Route path="/dialysis/sessions/new" element={<SessionFormPage />} />
-          <Route path="/dialysis/active" element={<ActiveSessionsPage />} />
-          <Route path="/dialysis/machines" element={<MachineManagementPage />} />
+          {/* ── Telemedicine ── */}
+          <Route path="/telemedicine" element={<Guard roles={['SUPER_ADMIN', 'ADMIN', 'DOCTOR']}><TelemedicineSchedulePage /></Guard>} />
+          <Route path="/telemedicine/book" element={<Guard roles={CLINICAL_ROLES}><TelemedicineBookingPage /></Guard>} />
+          <Route path="/telemedicine/call/:roomCode" element={<Guard roles={['SUPER_ADMIN', 'ADMIN', 'DOCTOR']}><VideoConsultationPage /></Guard>} />
+          <Route path="/telemedicine/notes" element={<Guard roles={['SUPER_ADMIN', 'ADMIN', 'DOCTOR']}><ConsultationNotesPage /></Guard>} />
 
-          {/* Phase 5: Integration & Compliance */}
-          <Route path="/philhealth/eclaims" element={<EClaimsPage />} />
-          <Route path="/hmo/direct-billing" element={<HMODirectBillingPage />} />
-          <Route path="/doh/reporting" element={<DOHReportingPage />} />
-          <Route path="/barcode/scanner" element={<BarcodeScannerPage />} />
-          <Route path="/barcode/wristband" element={<PatientWristbandPage />} />
+          {/* ── AI ── */}
+          <Route path="/ai/clinical-support" element={<Guard roles={['SUPER_ADMIN', 'ADMIN', 'DOCTOR']}><AIClinicalSupportPage /></Guard>} />
 
-          {/* Phase 6: Telemedicine */}
-          <Route path="/telemedicine" element={<TelemedicineSchedulePage />} />
-          <Route path="/telemedicine/book" element={<TelemedicineBookingPage />} />
-          <Route path="/telemedicine/call/:roomCode" element={<VideoConsultationPage />} />
-          <Route path="/telemedicine/notes" element={<ConsultationNotesPage />} />
+          {/* ── Nursing ── */}
+          <Route path="/nurses" element={<Guard roles={NURSING_ROLES}><NurseDashboardPage /></Guard>} />
+          <Route path="/nurses/vitals" element={<Guard roles={NURSING_ROLES}><VitalsEntryPage /></Guard>} />
+          <Route path="/nurses/care-plans" element={<Guard roles={NURSING_ROLES}><CarePlanPage /></Guard>} />
+          <Route path="/nurses/handover" element={<Guard roles={NURSING_ROLES}><ShiftHandoverPage /></Guard>} />
 
-          {/* Phase 6: AI */}
-          <Route path="/ai/clinical-support" element={<AIClinicalSupportPage />} />
+          {/* ── SMS ── */}
+          <Route path="/sms" element={<Guard roles={ADMIN_ROLES}><SMSDashboardPage /></Guard>} />
 
-          {/* Phase 6: Nursing */}
-          <Route path="/nurses" element={<NurseDashboardPage />} />
-          <Route path="/nurses/vitals" element={<VitalsEntryPage />} />
-          <Route path="/nurses/care-plans" element={<CarePlanPage />} />
-          <Route path="/nurses/handover" element={<ShiftHandoverPage />} />
+          {/* ── Payments ── */}
+          <Route path="/payments/online" element={<Guard roles={BILLING_ROLES}><OnlinePaymentPage /></Guard>} />
+          <Route path="/payments/transactions" element={<Guard roles={BILLING_ROLES}><TransactionHistoryPage /></Guard>} />
 
-          {/* Departments */}
-          <Route path="/departments" element={<DepartmentListPage />} />
+          {/* ── Appointments ── */}
+          <Route path="/appointments" element={<Guard roles={CLINICAL_ROLES}><AppointmentListPage /></Guard>} />
+          <Route path="/appointments/new" element={<Guard roles={CLINICAL_ROLES}><AppointmentFormPage /></Guard>} />
+          <Route path="/appointments/availability" element={<Guard roles={CLINICAL_ROLES}><AvailabilityCalendarPage /></Guard>} />
 
-          {/* Settings, User Management, Audit Log */}
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/users" element={<UserManagementPage />} />
-          <Route path="/audit-log" element={<AuditLogPage />} />
+          {/* ── HIE ── */}
+          <Route path="/hie" element={<Guard roles={ADMIN_ROLES}><HIEDashboardPage /></Guard>} />
 
-          {/* Phase 7: SMS */}
-          <Route path="/sms" element={<SMSDashboardPage />} />
-
-          {/* Phase 7: Online Payments */}
-          <Route path="/payments/online" element={<OnlinePaymentPage />} />
-          <Route path="/payments/transactions" element={<TransactionHistoryPage />} />
-
-          {/* Phase 7: Appointments */}
-          <Route path="/appointments" element={<AppointmentListPage />} />
-          <Route path="/appointments/new" element={<AppointmentFormPage />} />
-          <Route path="/appointments/availability" element={<AvailabilityCalendarPage />} />
-
-          {/* Phase 7: HIE */}
-          <Route path="/hie" element={<HIEDashboardPage />} />
+          {/* ── Administration ── */}
+          <Route path="/settings" element={<Guard roles={ADMIN_ROLES}><SettingsPage /></Guard>} />
+          <Route path="/users" element={<Guard roles={ADMIN_ROLES}><UserManagementPage /></Guard>} />
+          <Route path="/audit-log" element={<Guard roles={ADMIN_ROLES}><AuditLogPage /></Guard>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
