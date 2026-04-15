@@ -5,10 +5,14 @@ import {
   getClaimStatus,
   requestAuthorization,
   getEligibilityLog,
+  getPhilHealthConfig,
 } from './philhealth-eclaims.controller';
 import { authenticate } from '../../middleware/auth';
 
 const router = Router();
+
+// Public: config (no auth required — used by frontend to show/hide indicators)
+router.get('/philhealth/config', getPhilHealthConfig);
 
 router.use(authenticate);
 

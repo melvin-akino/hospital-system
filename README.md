@@ -184,6 +184,19 @@ iHIMS/
 | `PAYMONGO_SECRET_KEY` | *(blank)* | PayMongo API key (leave blank for simulation) |
 | `PAYMONGO_WEBHOOK_SECRET` | *(blank)* | PayMongo webhook signature secret |
 | `SEMAPHORE_API_KEY` | *(blank)* | Semaphore SMS API key (leave blank for simulation) |
+| `PHILHEALTH_API_URL` | *(blank)* | PhilHealth eClaims REST gateway base URL |
+| `PHILHEALTH_FACILITY_CODE` | *(blank)* | Accredited facility code issued by PhilHealth |
+| `PHILHEALTH_API_KEY` | *(blank)* | Bearer token for PhilHealth eClaims API |
+| `MAXICARE_API_URL` | *(blank)* | Maxicare provider API base URL |
+| `MAXICARE_FACILITY_CODE` | *(blank)* | Maxicare provider/facility code |
+| `MAXICARE_CLIENT_ID` | *(blank)* | Maxicare OAuth2 client ID |
+| `MAXICARE_CLIENT_SECRET` | *(blank)* | Maxicare OAuth2 client secret |
+| `PHILAM_API_URL` | *(blank)* | PhilamLife Health API base URL |
+| `PHILAM_FACILITY_CODE` | *(blank)* | Philam provider code |
+| `PHILAM_API_KEY` | *(blank)* | Philam API key |
+| `INTELLICARE_API_URL` | *(blank)* | Intellicare provider API base URL |
+| `INTELLICARE_FACILITY_CODE` | *(blank)* | Intellicare facility code |
+| `INTELLICARE_API_KEY` | *(blank)* | Intellicare API key |
 
 ### Enabling Real Payments (PayMongo)
 
@@ -205,6 +218,46 @@ iHIMS/
    SEMAPHORE_API_KEY=your_semaphore_api_key
    ```
 4. Restart the API server
+
+### Enabling PhilHealth eClaims API
+
+1. Register your facility at the [PhilHealth eClaims portal](https://eclaims.philhealth.gov.ph)
+2. Obtain your **Facility Code** and **API bearer token**
+3. Add to `apps/api/.env`:
+   ```
+   PHILHEALTH_API_URL=https://eclaims.philhealth.gov.ph/api/v2
+   PHILHEALTH_FACILITY_CODE=your_facility_code
+   PHILHEALTH_API_KEY=your_bearer_token
+   ```
+4. Restart the API server — eligibility checks and claim submissions will now hit the live PhilHealth gateway
+
+Without credentials the system runs in **simulation mode**: transmittal numbers are generated locally, claims are auto-approved after 60 seconds, and the UI shows a *(Simulated)* badge.
+
+### Enabling HMO Direct Billing APIs
+
+Configure per-HMO credentials. Each HMO runs independently — unconfigured HMOs fall back to simulation.
+
+**Maxicare** (OAuth2 client credentials):
+```
+MAXICARE_API_URL=https://api.maxicare.com.ph/v1
+MAXICARE_FACILITY_CODE=your_facility_code
+MAXICARE_CLIENT_ID=your_client_id
+MAXICARE_CLIENT_SECRET=your_client_secret
+```
+
+**PhilamLife Health** (API key):
+```
+PHILAM_API_URL=https://api.philamlife.com/hmo/v2
+PHILAM_FACILITY_CODE=your_provider_code
+PHILAM_API_KEY=your_api_key
+```
+
+**Intellicare** (API key):
+```
+INTELLICARE_API_URL=https://api.intellicare.com.ph/v1
+INTELLICARE_FACILITY_CODE=your_facility_code
+INTELLICARE_API_KEY=your_api_key
+```
 
 ---
 

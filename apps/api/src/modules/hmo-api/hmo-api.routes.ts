@@ -4,10 +4,14 @@ import {
   requestAuthorization,
   submitClaim,
   getClaimStatus,
+  getHmoApiConfig,
 } from './hmo-api.controller';
 import { authenticate } from '../../middleware/auth';
 
 const router = Router();
+
+// Public: list HMO companies and their API-enabled status
+router.get('/hmo/config', getHmoApiConfig);
 
 router.use(authenticate);
 

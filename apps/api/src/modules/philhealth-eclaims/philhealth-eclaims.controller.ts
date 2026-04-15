@@ -2,19 +2,27 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
+import {
+  verifyPhilHealthEligibility,
+  submitPhilHealthClaim,
+  getPhilHealthClaimStatus,
+  requestPhilHealthAuthorization,
+  isPhilHealthEnabled,
+} from './philhealth-eclaims.service';
 
-// In-memory eligibility log (session-scoped)
+// In-memory eligibility log (session-scoped, last 50 checks)
 interface EligibilityLogEntry {
   id: string;
   philhealthNo: string;
   lastName: string;
   dateOfBirth: string;
   eligible: boolean;
-  memberName?: string;
-  memberType?: string;
+  memberName?: string | null;
+  memberType?: string | null;
   status?: string;
   message: string;
   checkedAt: string;
+  isSimulated: boolean;
 }
 
 const eligibilityLog: EligibilityLogEntry[] = [];
@@ -28,135 +36,144 @@ export const verifyEligibility = asyncHandler(async (req: Request, res: Response
     return;
   }
 
-  // Look up patient by philhealthNo
-  const patient = await prisma.patient.findFirst({
-    where: {
-      philhealthNo: {
-        equals: philhealthNo as string,
-        mode: 'insensitive',
-      },
-    },
-  });
+  // ── Try PhilHealth API first ──────────────────────────────────────────────
+  const apiResult = await verifyPhilHealthEligibility(
+    philhealthNo as string,
+    lastName     as string,
+    dateOfBirth  as string,
+  );
 
-  const checkedAt = new Date().toISOString();
-  const logId = `EL-${Date.now()}`;
+  // ── If API returned a definitive result, also cross-check local DB ────────
+  let localPatient = null;
+  if (apiResult.eligible) {
+    localPatient = await prisma.patient.findFirst({
+      where: { philhealthNo: { equals: philhealthNo as string, mode: 'insensitive' } },
+    });
+  } else if (!isPhilHealthEnabled()) {
+    // Simulation mode: use the local DB as the source of truth
+    localPatient = await prisma.patient.findFirst({
+      where: { philhealthNo: { equals: philhealthNo as string, mode: 'insensitive' } },
+    });
 
-  let result: EligibilityLogEntry;
+    const checkedAt = new Date().toISOString();
+    const logId = `EL-${Date.now()}`;
 
-  if (!patient) {
-    result = {
-      id: logId,
-      philhealthNo,
-      lastName,
-      dateOfBirth,
-      eligible: false,
-      message: 'No PhilHealth member found with the provided PhilHealth number.',
-      checkedAt,
+    if (!localPatient) {
+      const entry: EligibilityLogEntry = {
+        id: logId, philhealthNo, lastName, dateOfBirth,
+        eligible: false, status: 'NOT_FOUND',
+        message: 'No PhilHealth member found with the provided PhilHealth number.',
+        checkedAt, isSimulated: true,
+      };
+      eligibilityLog.unshift(entry);
+      if (eligibilityLog.length > 50) eligibilityLog.splice(50);
+
+      successResponse(res, {
+        eligible: false, memberName: null, memberType: null,
+        status: 'NOT_FOUND', coverageStart: null, coverageEnd: null,
+        message: entry.message, isSimulated: true,
+        philhealthApiEnabled: false,
+      });
+      return;
+    }
+
+    // Validate last name
+    if (localPatient.lastName.toLowerCase() !== (lastName as string).toLowerCase()) {
+      const entry: EligibilityLogEntry = {
+        id: logId, philhealthNo, lastName, dateOfBirth,
+        eligible: false, memberType: undefined, status: 'MISMATCH',
+        message: 'Patient last name does not match PhilHealth records.',
+        checkedAt, isSimulated: true,
+      };
+      eligibilityLog.unshift(entry);
+      if (eligibilityLog.length > 50) eligibilityLog.splice(50);
+
+      successResponse(res, {
+        eligible: false, memberName: null, memberType: null,
+        status: 'MISMATCH', coverageStart: null, coverageEnd: null,
+        message: entry.message, isSimulated: true,
+        philhealthApiEnabled: false,
+      });
+      return;
+    }
+
+    // Validate DOB
+    const dobFromDb = new Date(localPatient.dateOfBirth).toISOString().split('T')[0];
+    const dobInput  = new Date(dateOfBirth as string).toISOString().split('T')[0];
+    if (dobFromDb !== dobInput) {
+      const entry: EligibilityLogEntry = {
+        id: logId, philhealthNo, lastName, dateOfBirth,
+        eligible: false, memberType: undefined, status: 'MISMATCH',
+        message: 'Date of birth does not match PhilHealth records.',
+        checkedAt, isSimulated: true,
+      };
+      eligibilityLog.unshift(entry);
+      if (eligibilityLog.length > 50) eligibilityLog.splice(50);
+
+      successResponse(res, {
+        eligible: false, memberName: null, memberType: null,
+        status: 'MISMATCH', coverageStart: null, coverageEnd: null,
+        message: entry.message, isSimulated: true,
+        philhealthApiEnabled: false,
+      });
+      return;
+    }
+
+    // Local DB check passed — build local response
+    const age = new Date().getFullYear() - new Date(localPatient.dateOfBirth).getFullYear();
+    const memberType = age >= 60 ? 'SENIOR_CITIZEN' : 'EMPLOYED';
+    const year = new Date().getFullYear();
+
+    const entry: EligibilityLogEntry = {
+      id: logId, philhealthNo, lastName, dateOfBirth,
+      eligible: true,
+      memberName: `${localPatient.lastName}, ${localPatient.firstName}`,
+      memberType, status: 'ACTIVE',
+      message: 'Patient is eligible for PhilHealth benefits.',
+      checkedAt, isSimulated: true,
     };
-    eligibilityLog.unshift(result);
+    eligibilityLog.unshift(entry);
+    if (eligibilityLog.length > 50) eligibilityLog.splice(50);
+
     successResponse(res, {
-      eligible: false,
-      memberName: null,
-      memberType: null,
-      status: 'NOT_FOUND',
-      coverageStart: null,
-      coverageEnd: null,
-      message: result.message,
+      eligible: true,
+      memberName: `${localPatient.lastName}, ${localPatient.firstName} ${localPatient.middleName ?? ''}`.trim(),
+      memberType, status: 'ACTIVE',
+      coverageStart: `${year}-01-01`,
+      coverageEnd:   `${year}-12-31`,
+      message: 'Patient is eligible for PhilHealth benefits.',
+      isSimulated: true,
+      philhealthApiEnabled: false,
     });
     return;
   }
 
-  // Validate last name match (case-insensitive)
-  if (patient.lastName.toLowerCase() !== (lastName as string).toLowerCase()) {
-    result = {
-      id: logId,
-      philhealthNo,
-      lastName,
-      dateOfBirth,
-      eligible: false,
-      memberName: undefined,
-      memberType: undefined,
-      status: 'MISMATCH',
-      message: 'Patient last name does not match PhilHealth records.',
-      checkedAt,
-    };
-    eligibilityLog.unshift(result);
-    successResponse(res, {
-      eligible: false,
-      memberName: null,
-      memberType: null,
-      status: 'MISMATCH',
-      coverageStart: null,
-      coverageEnd: null,
-      message: result.message,
-    });
-    return;
-  }
-
-  // Validate DOB match
-  const dobFromDb = new Date(patient.dateOfBirth).toISOString().split('T')[0];
-  const dobInput = new Date(dateOfBirth as string).toISOString().split('T')[0];
-  if (dobFromDb !== dobInput) {
-    result = {
-      id: logId,
-      philhealthNo,
-      lastName,
-      dateOfBirth,
-      eligible: false,
-      memberName: `${patient.lastName}, ${patient.firstName}`,
-      memberType: undefined,
-      status: 'MISMATCH',
-      message: 'Date of birth does not match PhilHealth records.',
-      checkedAt,
-    };
-    eligibilityLog.unshift(result);
-    successResponse(res, {
-      eligible: false,
-      memberName: null,
-      memberType: null,
-      status: 'MISMATCH',
-      coverageStart: null,
-      coverageEnd: null,
-      message: result.message,
-    });
-    return;
-  }
-
-  // Determine member type based on age
-  const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear();
-  const memberType = age >= 60 ? 'SENIOR_CITIZEN' : 'EMPLOYED';
-
-  // Simulate coverage dates
-  const coverageStart = new Date();
-  coverageStart.setMonth(0, 1); // Jan 1 of current year
-  const coverageEnd = new Date();
-  coverageEnd.setMonth(11, 31); // Dec 31 of current year
-
-  result = {
-    id: logId,
+  // ── Record in log and respond ─────────────────────────────────────────────
+  const logEntry: EligibilityLogEntry = {
+    id:          `EL-${Date.now()}`,
     philhealthNo,
-    lastName,
-    dateOfBirth,
-    eligible: true,
-    memberName: `${patient.lastName}, ${patient.firstName}`,
-    memberType,
-    status: 'ACTIVE',
-    message: 'Patient is eligible for PhilHealth benefits.',
-    checkedAt,
+    lastName:    lastName as string,
+    dateOfBirth: dateOfBirth as string,
+    eligible:    apiResult.eligible,
+    memberName:  apiResult.memberName,
+    memberType:  apiResult.memberType,
+    status:      apiResult.status,
+    message:     apiResult.message,
+    checkedAt:   new Date().toISOString(),
+    isSimulated: apiResult.isSimulated,
   };
-  eligibilityLog.unshift(result);
-
-  // Keep only last 50
+  eligibilityLog.unshift(logEntry);
   if (eligibilityLog.length > 50) eligibilityLog.splice(50);
 
+  // Enrich memberName from local DB if API didn't provide it
+  const memberName = apiResult.memberName ?? (localPatient
+    ? `${localPatient.lastName}, ${localPatient.firstName} ${localPatient.middleName ?? ''}`.trim()
+    : null);
+
   successResponse(res, {
-    eligible: true,
-    memberName: `${patient.lastName}, ${patient.firstName} ${patient.middleName ?? ''}`.trim(),
-    memberType,
-    status: 'ACTIVE',
-    coverageStart: coverageStart.toISOString().split('T')[0],
-    coverageEnd: coverageEnd.toISOString().split('T')[0],
-    message: 'Patient is eligible for PhilHealth benefits.',
+    ...apiResult,
+    memberName,
+    philhealthApiEnabled: isPhilHealthEnabled(),
   });
 });
 
@@ -172,42 +189,54 @@ export const submitClaim = asyncHandler(async (req: Request, res: Response) => {
   const claim = await prisma.philHealthClaim.findUnique({
     where: { id: claimId },
     include: {
-      patient: { select: { firstName: true, lastName: true, philhealthNo: true } },
+      patient: {
+        select: {
+          firstName: true, lastName: true, philhealthNo: true,
+          dateOfBirth: true,
+        },
+      },
     },
   });
 
-  if (!claim) {
-    errorResponse(res, 'PhilHealth claim not found', 404);
-    return;
-  }
+  if (!claim) { errorResponse(res, 'PhilHealth claim not found', 404); return; }
 
   if (claim.status === 'SUBMITTED' || claim.status === 'APPROVED') {
     errorResponse(res, `Claim is already ${claim.status}`, 400);
     return;
   }
 
-  // Generate transmittal number
-  const year = new Date().getFullYear();
-  const month = String(new Date().getMonth() + 1).padStart(2, '0');
-  const seq = String(Math.floor(Math.random() * 99999)).padStart(5, '0');
-  const transmittalNo = `PH-TRN-${year}${month}-${seq}`;
+  // ── Call PhilHealth API (or simulate) ─────────────────────────────────────
+  const apiResult = await submitPhilHealthClaim({
+    claimNo:          claim.claimNo,
+    philhealthNo:     claim.patient.philhealthNo,
+    patientLastName:  claim.patient.lastName,
+    patientFirstName: claim.patient.firstName,
+    claimAmount:      Number(claim.claimAmount),
+    principalDiagnosis: (claim as unknown as Record<string, unknown>)['principalDiagnosis'] as string | undefined,
+  });
 
+  // ── Persist transmittal number ────────────────────────────────────────────
+  const notesSuffix = `Transmittal: ${apiResult.transmittalNo}${apiResult.isSimulated ? ' [sim]' : ''}`;
   const updated = await prisma.philHealthClaim.update({
     where: { id: claimId },
     data: {
       status: 'SUBMITTED',
       submittedAt: new Date(),
       notes: claim.notes
-        ? `${claim.notes} | Transmittal: ${transmittalNo}`
-        : `Transmittal: ${transmittalNo}`,
+        ? `${claim.notes} | ${notesSuffix}`
+        : notesSuffix,
     },
   });
 
   successResponse(res, {
-    success: true,
-    transmittalNo,
-    claimNo: updated.claimNo,
-    message: `Claim ${updated.claimNo} submitted to PhilHealth eClaims portal. Transmittal No: ${transmittalNo}`,
+    success:      apiResult.success,
+    transmittalNo: apiResult.transmittalNo,
+    referenceNo:  apiResult.referenceNo,
+    claimNo:      updated.claimNo,
+    status:       apiResult.status,
+    message:      apiResult.message,
+    isSimulated:  apiResult.isSimulated,
+    philhealthApiEnabled: isPhilHealthEnabled(),
   });
 });
 
@@ -217,65 +246,72 @@ export const getClaimStatus = asyncHandler(async (req: Request, res: Response) =
     where: { id: req.params['claimId'] },
     include: {
       patient: {
-        select: {
-          id: true,
-          patientNo: true,
-          firstName: true,
-          lastName: true,
-          philhealthNo: true,
-        },
+        select: { id: true, patientNo: true, firstName: true, lastName: true, philhealthNo: true },
       },
     },
   });
 
-  if (!claim) {
-    errorResponse(res, 'PhilHealth claim not found', 404);
-    return;
-  }
+  if (!claim) { errorResponse(res, 'PhilHealth claim not found', 404); return; }
 
-  // Simulate progression: if submitted > 1 min ago → APPROVED (for demo)
+  // Extract reference/transmittal no from notes
+  const match = claim.notes?.match(/Transmittal:\s*(PH-TRN-[\w-]+)/);
+  const referenceNo = match?.[1] ?? claim.claimNo;
+
+  // ── Query PhilHealth API for live status ──────────────────────────────────
+  const apiStatus = await getPhilHealthClaimStatus(referenceNo);
+
+  // Sync local status if API says APPROVED/REJECTED
   let currentStatus = claim.status;
-  if (
-    claim.status === 'SUBMITTED' &&
-    claim.submittedAt &&
-    Date.now() - new Date(claim.submittedAt).getTime() > 60_000
-  ) {
-    currentStatus = 'APPROVED';
-    await prisma.philHealthClaim.update({
-      where: { id: claim.id },
-      data: { status: 'APPROVED', approvedAt: new Date() },
-    });
+  if (!apiStatus.isSimulated) {
+    if (apiStatus.status === 'APPROVED' && claim.status !== 'APPROVED') {
+      currentStatus = 'APPROVED';
+      await prisma.philHealthClaim.update({
+        where: { id: claim.id },
+        data: { status: 'APPROVED', approvedAt: new Date() },
+      });
+    } else if (apiStatus.status === 'REJECTED' && claim.status !== 'REJECTED') {
+      currentStatus = 'REJECTED';
+      await prisma.philHealthClaim.update({
+        where: { id: claim.id },
+        data: { status: 'REJECTED' },
+      });
+    }
+  } else {
+    // Simulation fallback: progress after 60 seconds
+    if (
+      claim.status === 'SUBMITTED' &&
+      claim.submittedAt &&
+      Date.now() - new Date(claim.submittedAt).getTime() > 60_000
+    ) {
+      currentStatus = 'APPROVED';
+      await prisma.philHealthClaim.update({
+        where: { id: claim.id },
+        data: { status: 'APPROVED', approvedAt: new Date() },
+      });
+    }
   }
 
-  // Build timeline
   const timeline = [
-    { step: 'Claim Created', date: claim.createdAt.toISOString(), done: true },
-    {
-      step: 'Submitted to PhilHealth',
-      date: claim.submittedAt?.toISOString() ?? null,
-      done: !!claim.submittedAt,
-    },
-    {
-      step: 'Under Review',
-      date: claim.submittedAt ? new Date(new Date(claim.submittedAt).getTime() + 30_000).toISOString() : null,
-      done: currentStatus === 'APPROVED' || currentStatus === 'REJECTED',
-    },
-    {
-      step: 'Approved',
-      date: claim.approvedAt?.toISOString() ?? null,
-      done: currentStatus === 'APPROVED',
-    },
+    { step: 'Claim Created',         date: claim.createdAt.toISOString(),                                                          done: true },
+    { step: 'Submitted to PhilHealth', date: claim.submittedAt?.toISOString() ?? null,                                              done: !!claim.submittedAt },
+    { step: 'Under Review',           date: claim.submittedAt ? new Date(new Date(claim.submittedAt).getTime() + 30_000).toISOString() : null, done: currentStatus === 'APPROVED' || currentStatus === 'REJECTED' },
+    { step: 'Approved',               date: claim.approvedAt?.toISOString() ?? null,                                               done: currentStatus === 'APPROVED' },
   ];
 
   successResponse(res, {
-    claimId: claim.id,
-    claimNo: claim.claimNo,
-    status: currentStatus,
-    claimAmount: Number(claim.claimAmount),
-    patient: claim.patient,
-    submittedAt: claim.submittedAt,
-    approvedAt: claim.approvedAt,
+    claimId:        claim.id,
+    claimNo:        claim.claimNo,
+    referenceNo,
+    status:         currentStatus,
+    claimAmount:    Number(claim.claimAmount),
+    approvedAmount: apiStatus.approvedAmount,
+    remarks:        apiStatus.remarks,
+    patient:        claim.patient,
+    submittedAt:    claim.submittedAt,
+    approvedAt:     claim.approvedAt,
     timeline,
+    isSimulated:    apiStatus.isSimulated,
+    philhealthApiEnabled: isPhilHealthEnabled(),
   });
 });
 
@@ -289,52 +325,48 @@ export const requestAuthorization = asyncHandler(async (req: Request, res: Respo
   }
 
   const patient = await prisma.patient.findUnique({ where: { id: patientId } });
-  if (!patient) {
-    errorResponse(res, 'Patient not found', 404);
-    return;
-  }
+  if (!patient) { errorResponse(res, 'Patient not found', 404); return; }
 
   let caseRate = null;
   if (caseRateId) {
     caseRate = await prisma.philHealthCaseRate.findUnique({ where: { id: caseRateId } });
   }
 
-  // Generate authorization number
-  const now = new Date();
-  const yr = now.getFullYear();
-  const mo = String(now.getMonth() + 1).padStart(2, '0');
-  const seq = String(Math.floor(Math.random() * 999999)).padStart(6, '0');
-  const authorizationNo = `PH-AUTH-${yr}${mo}-${seq}`;
-
-  // Approved amount: use case rate if available, else 80% of estimated
-  const approvedAmount = caseRate
-    ? Number(caseRate.caseRate)
-    : Math.round(Number(estimatedAmount) * 0.8 * 100) / 100;
-
-  // Valid until: 30 days from admission date or today
-  const baseDate = admissionDate ? new Date(admissionDate as string) : new Date();
-  const validUntil = new Date(baseDate);
-  validUntil.setDate(validUntil.getDate() + 30);
+  // ── Call PhilHealth API (or simulate) ─────────────────────────────────────
+  const apiResult = await requestPhilHealthAuthorization({
+    philhealthNo:    patient.philhealthNo,
+    patientLastName: patient.lastName,
+    caseRateCode:    caseRate?.icdCode,
+    estimatedAmount: Number(estimatedAmount),
+    admissionDate:   admissionDate as string | undefined,
+  });
 
   successResponse(res, {
-    authorizationNo,
-    patientName: `${patient.lastName}, ${patient.firstName}`,
-    philhealthNo: patient.philhealthNo,
-    caseRate: caseRate ? { icdCode: caseRate.icdCode, description: caseRate.description } : null,
+    authorizationNo: apiResult.authorizationNo,
+    patientName:     `${patient.lastName}, ${patient.firstName}`,
+    philhealthNo:    patient.philhealthNo,
+    caseRate:        caseRate ? { icdCode: caseRate.icdCode, description: caseRate.description } : null,
     estimatedAmount: Number(estimatedAmount),
-    approvedAmount,
-    validUntil: validUntil.toISOString().split('T')[0],
-    conditions: [
-      'Pre-authorization is valid for 30 days from admission date.',
-      'Actual claim must be filed within 60 days of discharge.',
-      'Final benefit is subject to audit and verification.',
-      caseRate ? `Case rate applies: ${caseRate.description}` : 'No specific case rate applied.',
-    ],
-    issuedAt: now.toISOString(),
+    approvedAmount:  apiResult.approvedAmount,
+    validUntil:      apiResult.validUntil,
+    conditions:      apiResult.conditions,
+    issuedAt:        new Date().toISOString(),
+    isSimulated:     apiResult.isSimulated,
+    philhealthApiEnabled: isPhilHealthEnabled(),
   });
 });
 
 // GET /api/philhealth/eligibility-log
 export const getEligibilityLog = asyncHandler(async (_req: Request, res: Response) => {
   successResponse(res, eligibilityLog.slice(0, 50));
+});
+
+// GET /api/philhealth/config
+export const getPhilHealthConfig = asyncHandler(async (_req: Request, res: Response) => {
+  successResponse(res, {
+    philhealthApiEnabled: isPhilHealthEnabled(),
+    facilityCode: process.env['PHILHEALTH_FACILITY_CODE']
+      ? `${process.env['PHILHEALTH_FACILITY_CODE'].slice(0, 3)}****`
+      : null,
+  });
 });
