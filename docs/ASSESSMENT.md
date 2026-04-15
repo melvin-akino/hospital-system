@@ -43,41 +43,36 @@ intelligent Hospital Information System (iHIMS) — full hospital management sys
 | AI Clinical Support | ✅ | ✅ | Rule-based | 50+ hardcoded diagnosis rules, no ML |
 | User Management | ✅ | ✅ | Prisma | |
 | Audit Log | ✅ | ✅ | Prisma | |
-| Settings Page | ✅ | — | — | UI only, no backend persistence yet |
+| Settings Page | ✅ | ✅ | Prisma | SystemConfig model, ColorPicker, logo upload, live preview |
+| Dynamic Branding | ✅ | ✅ | Prisma | White-label: name, logo, primary color, sidebar color |
 | PDF Export (bills + discharge) | ✅ | — | — | jsPDF + autoTable |
 | RBAC + Role-filtered sidebar | ✅ | ✅ | — | Guard component + Sidebar filtering |
 | Patient Portal (separate app) | ✅ | ✅ | Prisma | 6 pages, appointments/bills/records |
+| User Profile + Password Reset | ✅ | ✅ | Prisma | Profile edit, change password, forgot/reset flow |
+| Real SMS (Semaphore) | ✅ | ✅ | Prisma | Real HTTPS call, simulation fallback, SmsLog to DB |
+| Role-specific Dashboards | ✅ | — | — | 7 role variants with widgets |
+| Contextual Help System | ✅ | — | — | HelpDrawer with 20+ articles, ? button in header |
+| Real-time Queue (Socket.io) | ✅ | ✅ | Prisma | WebSocket push on add/call/complete/skip; Live badge |
+| PayMongo Payment Gateway | ✅ | ✅ | Prisma | GCash/Maya links + card intents; simulation fallback |
 
 ---
 
-## Hybrid Storage — JSON Files (Should Be Migrated to Prisma) ⚠️
+## JSON Storage Modules — ALL MIGRATED ✅
 
-| Module | JSON Files | Data at Risk |
-|--------|-----------|-------------|
-| HIE (Health Info Exchange) | `hie-consents.json`, `hie-requests.json`, `hie-referrals.json`, `hie-audit-log.json` | Consent records, referrals |
-| DOH Reporting | `doh-logs.json` | Submission logs |
-| Barcode / RFID | `barcode-scans.json` | Scan event history |
-| SMS | `sms-templates.json`, `sms-logs.json` | Templates + send history |
-| Telemedicine | `telemedicine-sessions.json` | Session metadata |
-| Online Payments | `payment-intents.json` | Payment intent records |
+All 6 previously flat-file modules now use Prisma/PostgreSQL:
+
+| Module | Prisma Models | Notes |
+|--------|--------------|-------|
+| HIE | HieConsent, HieRequest, HieReferral, HieAuditEntry | FHIR R4 bundle preserved |
+| DOH Reporting | DohSubmissionLog | FHSIS + PIDSR reports from Prisma |
+| Barcode / RFID | BarcodeScan | Scan log capped at 100 via DB query |
+| SMS | SmsTemplate, SmsLog | Templates seeded from DB on startup |
+| Telemedicine | TelemedicineSession | roomCode @unique collision retry |
+| Online Payments | PaymentIntent | Decimal amount; PayMongo or simulation |
 
 ---
 
 ## Stub / Missing Features ❌
-
-### 🔴 High Priority — Small Effort
-| Gap | Description |
-|-----|-------------|
-| User Profile page | `/profile` route linked from header but no page exists |
-| Real SMS (Semaphore) | `simulateSend()` returns fake ID, never calls Semaphore API |
-| Password Reset flow | No forgot-password link, no reset token, no reset pages |
-
-### 🔴 High Priority — Medium Effort
-| Gap | Description |
-|-----|-------------|
-| Real PayMongo payments | Generates fake intent IDs, no GCash/Maya/card API call |
-| Real-time Queue (WebSocket) | Queue display polls; needs push via Socket.io |
-| Migrate JSON modules to Prisma | 6 modules above losing data on redeploy |
 
 ### 🟡 Medium Priority — Medium Effort
 | Gap | Description |
@@ -94,7 +89,6 @@ intelligent Hospital Information System (iHIMS) — full hospital management sys
 | Gap | Description |
 |-----|-------------|
 | AI upgrade to LLM | Currently rule-based; could integrate OpenAI/Claude API |
-| Settings backend persistence | Settings UI exists but values not saved to DB |
 | Email notifications | No email sending anywhere in the system |
 
 ---
