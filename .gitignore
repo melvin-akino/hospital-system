@@ -9,3 +9,6 @@ coverage/
 *.log
 uploads/
 prisma/generated/
+.server-pids
+api.log
+web.log
