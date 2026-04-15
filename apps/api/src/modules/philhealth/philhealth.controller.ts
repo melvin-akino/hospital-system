@@ -273,7 +273,7 @@ export const generateCF4 = asyncHandler(async (req: Request, res: Response) => {
   <IcdCode>${icdCode}</IcdCode>
   <Diagnosis>${diagnosis}</Diagnosis>
   <ClaimAmount>${Number(claim.claimAmount).toFixed(2)}</ClaimAmount>
-  <HospitalCode>PIBS-001</HospitalCode>
+  <HospitalCode>iHIMS-001</HospitalCode>
   <SubmissionDate>${submissionDate}</SubmissionDate>
 </PhilHealthClaim>`;
 

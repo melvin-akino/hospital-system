@@ -444,9 +444,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
         {!collapsed && (
           <div style={{ marginLeft: 8 }}>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, lineHeight: 1.2 }}>
-              PIBS
+              iHIMS
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>Billing System</div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>Hospital Info System</div>
           </div>
         )}
       </div>

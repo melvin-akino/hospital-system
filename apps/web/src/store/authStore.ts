@@ -32,12 +32,12 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isAuthenticated: false,
       login: (user, token) => {
-        localStorage.setItem('pibs_token', token);
+        localStorage.setItem('ihims_token', token);
         set({ user, token, isAuthenticated: true });
       },
       logout: () => {
-        localStorage.removeItem('pibs_token');
-        localStorage.removeItem('pibs_user');
+        localStorage.removeItem('ihims_token');
+        localStorage.removeItem('ihims_user');
         set({ user: null, token: null, isAuthenticated: false });
       },
       updateUser: (partialUser) =>
@@ -46,7 +46,7 @@ export const useAuthStore = create<AuthState>()(
         })),
     }),
     {
-      name: 'pibs_auth',
+      name: 'ihims_auth',
       partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated }),
     }
   )

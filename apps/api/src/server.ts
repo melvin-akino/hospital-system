@@ -51,7 +51,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`PIBS API running on port ${PORT}`);
+  console.log(`iHIMS API running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 

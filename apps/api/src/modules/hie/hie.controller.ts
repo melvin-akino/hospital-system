@@ -115,7 +115,7 @@ export const recordConsent = asyncHandler(async (req: Request, res: Response) =>
     'CONSENT_RECORDED',
     patientId,
     req.user?.username || 'system',
-    'PIBS Hospital',
+    'iHIMS Hospital',
     `Consent type: ${consentType}`
   );
 
@@ -222,7 +222,7 @@ export const sendReferral = asyncHandler(async (req: Request, res: Response) => 
     'REFERRAL_SENT',
     patientId,
     req.user?.username || 'system',
-    'PIBS Hospital',
+    'iHIMS Hospital',
     `Referred to ${receivingFacility} by Dr. ${referringDoctor}. Urgency: ${urgency}`
   );
 
@@ -336,7 +336,7 @@ export const getFhirBundle = asyncHandler(async (req: Request, res: Response) =>
     'FHIR_BUNDLE_GENERATED',
     patientId,
     req.user?.username || 'system',
-    'PIBS Hospital',
+    'iHIMS Hospital',
     `FHIR R4 bundle generated for patient ${patient.patientNo}`
   );
 

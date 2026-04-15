@@ -328,9 +328,9 @@ const HELP_CONTENT: Record<string, HelpArticle> = {
 };
 
 const DEFAULT_HELP: HelpArticle = {
-  title: 'PIBS Help',
+  title: 'iHIMS Help',
   description:
-    'Philippine Integrated Billing System — hospital management platform covering clinical, billing, pharmacy, and administrative workflows.',
+    'intelligent Hospital Information System — hospital management platform covering clinical, billing, pharmacy, and administrative workflows.',
   steps: [
     'Use the sidebar to navigate between modules.',
     'Your role controls which modules you can access.',
@@ -466,7 +466,7 @@ const HelpDrawer: React.FC<HelpDrawerProps> = ({ open, onClose }) => {
         {/* Footer */}
         <Divider style={{ margin: '4px 0' }} />
         <Text type="secondary" style={{ fontSize: 11 }}>
-          PIBS v1.0 · Philippine Integrated Billing System
+          iHIMS v1.0 · intelligent Hospital Information System
         </Text>
       </Space>
     </Drawer>

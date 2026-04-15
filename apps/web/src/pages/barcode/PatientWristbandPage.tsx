@@ -50,7 +50,7 @@ const WristbandPreview: React.FC<{ data: WristbandData }> = ({ data }) => {
     <div className="wristband" id="wristband-print">
       <div style={{ borderBottom: '2px solid #000', paddingBottom: 6, marginBottom: 6 }}>
         <div style={{ fontSize: 11, color: '#666', fontWeight: 'bold', letterSpacing: 1 }}>
-          PIBS — PATIENT WRISTBAND
+          iHIMS — PATIENT WRISTBAND
         </div>
       </div>
 

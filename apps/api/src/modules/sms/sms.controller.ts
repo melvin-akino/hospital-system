@@ -52,31 +52,31 @@ const DEFAULT_TEMPLATES: Omit<SmsTemplate, 'id' | 'createdAt' | 'updatedAt'>[] =
     name: 'APPOINTMENT_REMINDER',
     category: 'APPOINTMENT',
     template:
-      'Dear {{patientName}}, this is a reminder for your appointment with Dr. {{doctorName}} on {{date}} at {{time}}. Please arrive 15 minutes early. - PIBS Hospital',
+      'Dear {{patientName}}, this is a reminder for your appointment with Dr. {{doctorName}} on {{date}} at {{time}}. Please arrive 15 minutes early. - iHIMS Hospital',
   },
   {
     name: 'LAB_RESULT_READY',
     category: 'LABORATORY',
     template:
-      'Dear {{patientName}}, your laboratory results are now available. Please visit the hospital or check your patient portal. - PIBS Hospital',
+      'Dear {{patientName}}, your laboratory results are now available. Please visit the hospital or check your patient portal. - iHIMS Hospital',
   },
   {
     name: 'BILL_READY',
     category: 'BILLING',
     template:
-      'Dear {{patientName}}, your bill ({{billNo}}) of {{amount}} is ready for payment. - PIBS Hospital',
+      'Dear {{patientName}}, your bill ({{billNo}}) of {{amount}} is ready for payment. - iHIMS Hospital',
   },
   {
     name: 'PRESCRIPTION_READY',
     category: 'PHARMACY',
     template:
-      'Dear {{patientName}}, your prescription is ready for pickup at our pharmacy. - PIBS Hospital',
+      'Dear {{patientName}}, your prescription is ready for pickup at our pharmacy. - iHIMS Hospital',
   },
   {
     name: 'APPOINTMENT_CONFIRMED',
     category: 'APPOINTMENT',
     template:
-      'Dear {{patientName}}, your appointment with Dr. {{doctorName}} on {{date}} has been confirmed. Room code: {{roomCode}}. - PIBS Hospital',
+      'Dear {{patientName}}, your appointment with Dr. {{doctorName}} on {{date}} has been confirmed. Room code: {{roomCode}}. - iHIMS Hospital',
   },
 ];
 
@@ -348,7 +348,7 @@ export const sendAppointmentReminder = asyncHandler(async (req: Request, res: Re
       .replace('{{date}}', dateStr)
       .replace('{{time}}', timeStr);
   } else {
-    message = `Dear ${patient.firstName} ${patient.lastName}, reminder for your appointment on ${dateStr} at ${timeStr}. - PIBS Hospital`;
+    message = `Dear ${patient.firstName} ${patient.lastName}, reminder for your appointment on ${dateStr} at ${timeStr}. - iHIMS Hospital`;
   }
 
   const logs = readLogs();

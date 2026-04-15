@@ -87,10 +87,10 @@ const PatientLoginPage: React.FC = () => {
             <span style={{ color: '#fff', fontSize: 28, fontWeight: 700 }}>P</span>
           </div>
           <Title level={3} style={{ color: '#0891b2', marginBottom: 4 }}>
-            PIBS Patient Portal
+            iHIMS Patient Portal
           </Title>
           <Text style={{ color: '#64748b', fontSize: 13 }}>
-            Philippine Integrated Billing System
+            intelligent Hospital Information System
           </Text>
         </div>
 
@@ -183,7 +183,7 @@ const PatientLoginPage: React.FC = () => {
         <Paragraph
           style={{ textAlign: 'center', marginTop: 24, color: '#94a3b8', fontSize: 12 }}
         >
-          &copy; {new Date().getFullYear()} PIBS — Philippine Integrated Billing System
+          &copy; {new Date().getFullYear()} iHIMS — intelligent Hospital Information System
         </Paragraph>
       </div>
     </div>

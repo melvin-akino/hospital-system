@@ -1,4 +1,4 @@
-# PIBS System Assessment Baseline
+# iHIMS System Assessment Baseline
 **Date:** 2026-04-15  
 **Assessed by:** Claude Code  
 **Purpose:** Development baseline — do not re-assess unless major phase is added
@@ -6,7 +6,7 @@
 ---
 
 ## System Overview
-Philippine Integrated Billing System (PIBS) — full hospital management system  
+intelligent Hospital Information System (iHIMS) — full hospital management system  
 **Stack:** NestJS (API, port 3001) · Vite/React (Web, port 5175) · Vite/React (Patient Portal, port 5174) · PostgreSQL · Prisma ORM
 
 **Monorepo:** npm workspaces + Turborepo  

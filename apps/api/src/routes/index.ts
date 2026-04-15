@@ -86,8 +86,8 @@ router.use('/', auditRoutes);
 // API info
 router.get('/', (_req, res) => {
   res.json({
-    name: 'PIBS API',
+    name: 'iHIMS API',
     version: '2.0.0',
-    description: 'Philippine Integrated Billing System',
+    description: 'intelligent Hospital Information System',
   });
 });

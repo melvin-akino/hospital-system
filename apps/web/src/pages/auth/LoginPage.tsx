@@ -46,10 +46,10 @@ const LoginPage: React.FC = () => {
           <div style={{ textAlign: 'center' }}>
             <MedicineBoxOutlined style={{ fontSize: 48, color: '#1890ff' }} />
             <Title level={2} style={{ margin: '8px 0 0', color: '#001529' }}>
-              PIBS
+              iHIMS
             </Title>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              Philippine Integrated Billing System
+              intelligent Hospital Information System
             </Text>
           </div>
 
@@ -108,7 +108,7 @@ const LoginPage: React.FC = () => {
           </Form>
 
           <Text type="secondary" style={{ display: 'block', textAlign: 'center', fontSize: 12 }}>
-            &copy; {new Date().getFullYear()} PIBS Hospital Information System
+            &copy; {new Date().getFullYear()} iHIMS
           </Text>
         </Space>
       </Card>

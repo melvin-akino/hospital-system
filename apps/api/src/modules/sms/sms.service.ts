@@ -19,7 +19,7 @@ export interface SemaphoreResult {
 export async function sendSms(
   recipientNumber: string,
   message: string,
-  senderName = 'PIBS'
+  senderName = 'iHIMS'
 ): Promise<SemaphoreResult> {
   const apiKey = process.env.SEMAPHORE_API_KEY;
 
@@ -80,7 +80,7 @@ export async function sendSms(
  */
 export async function sendResetSms(phone: string, token: string): Promise<void> {
   const message =
-    `Your PIBS password reset token is: ${token}\n` +
+    `Your iHIMS password reset token is: ${token}\n` +
     `This token expires in 1 hour. Do not share it with anyone.`;
   await sendSms(phone, message);
 }

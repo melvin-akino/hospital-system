@@ -37,8 +37,8 @@ const SettingsPage: React.FC = () => {
       ),
       children: (
         <Form form={hospitalForm} layout="vertical" initialValues={{
-          hospitalName: 'PIBS General Hospital',
-          shortName: 'PIBS',
+          hospitalName: 'iHIMS General Hospital',
+          shortName: 'iHIMS',
           address: '123 Healthcare Ave, Manila, Philippines',
           city: 'Manila',
           province: 'Metro Manila',
@@ -320,7 +320,7 @@ const SettingsPage: React.FC = () => {
             </Col>
             <Col span={12}>
               <Form.Item label="SMS Sender Name" name="smsSenderId">
-                <Input placeholder="PIBS Hospital" maxLength={11} />
+                <Input placeholder="iHIMS Hospital" maxLength={11} />
               </Form.Item>
             </Col>
           </Row>

@@ -13,7 +13,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles }) => {
 
   // Sync guard: if Zustand says authenticated but the token is gone (e.g. cleared by
   // the 401 interceptor or another tab's logout), force a clean logout immediately.
-  const tokenPresent = !!localStorage.getItem('pibs_token');
+  const tokenPresent = !!localStorage.getItem('ihims_token');
 
   useEffect(() => {
     if (isAuthenticated && !tokenPresent) {

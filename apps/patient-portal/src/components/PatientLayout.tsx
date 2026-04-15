@@ -101,7 +101,7 @@ const PatientLayout: React.FC<PatientLayoutProps> = ({ children }) => {
                 letterSpacing: '-0.3px',
               }}
             >
-              PIBS Patient Portal
+              iHIMS Patient Portal
             </Text>
           </div>
         </div>

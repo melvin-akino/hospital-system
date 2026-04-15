@@ -10,7 +10,7 @@ const api = axios.create({
 // Request interceptor — attach JWT
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('pibs_token');
+    const token = localStorage.getItem('ihims_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -25,9 +25,9 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Clear ALL auth storage including Zustand's persisted state
-      localStorage.removeItem('pibs_token');
-      localStorage.removeItem('pibs_user');
-      localStorage.removeItem('pibs_auth'); // Zustand persist key — prevents the login↔dashboard loop
+      localStorage.removeItem('ihims_token');
+      localStorage.removeItem('ihims_user');
+      localStorage.removeItem('ihims_auth'); // Zustand persist key — prevents the login↔dashboard loop
       window.location.href = '/login';
     }
     return Promise.reject(error);
