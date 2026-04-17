@@ -57,6 +57,8 @@ intelligent Hospital Information System (iHIMS) — full hospital management sys
 | PhilHealth eClaims API | ✅ | ✅ | Prisma | Real REST calls to eClaims gateway; simulation fallback when creds absent |
 | HMO Direct Billing API | ✅ | ✅ | Prisma | Maxicare (OAuth2), Philam, Intellicare; per-HMO simulation fallback |
 | WebRTC Telemedicine Video | ✅ | ✅ | Socket.io | P2P video/audio via RTCPeerConnection; screen share; real-time chat relay |
+| Email Notifications | ✅ | ✅ | Built-in SMTP | Zero-dep SMTP client; password reset, appointment & telemedicine confirmations |
+| AI Clinical Support (LLM) | ✅ | ✅ | Claude API | Diagnosis, drug interactions, vital sign narrative via Claude; rule-based fallback |
 
 ---
 
@@ -75,13 +77,10 @@ All 6 previously flat-file modules now use Prisma/PostgreSQL:
 
 ---
 
-## Stub / Missing Features ❌
+## All Assessed Gaps Resolved ✅
 
-### 🟢 Low Priority
-| Gap | Description |
-|-----|-------------|
-| AI upgrade to LLM | Currently rule-based; could integrate OpenAI/Claude API |
-| Email notifications | No email sending anywhere in the system |
+All previously identified stub/missing features have been implemented as of 2026-04-17.
+See the "What Is Fully Built" table above for the complete feature set.
 
 ---
 

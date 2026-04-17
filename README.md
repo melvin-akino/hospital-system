@@ -259,6 +259,38 @@ INTELLICARE_FACILITY_CODE=your_facility_code
 INTELLICARE_API_KEY=your_api_key
 ```
 
+### Enabling AI Clinical Support (Claude API)
+
+1. Create an account at https://console.anthropic.com
+2. Generate an API key
+3. Add to `apps/api/.env`:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-your-key-here
+   ```
+4. Restart the API server — diagnosis suggestions, drug interaction checking, and vital signs analysis will now use Claude
+
+Without an API key the system uses the built-in 30-rule symptom engine and drug interaction table. Responses include an `aiEngine` field (`"llm"` or `"rule-based"`) so the frontend can display the appropriate badge.
+
+### Enabling Email Notifications (SMTP)
+
+1. Configure your SMTP server credentials (Gmail app passwords work):
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=noreply@yourhospital.com
+   SMTP_PASS=your-app-password
+   SMTP_FROM=iHIMS Hospital <noreply@yourhospital.com>
+   ```
+2. Restart the API server
+
+Email notifications are sent for:
+- Password reset requests (link valid for 1 hour)
+- Password change security notices
+- Appointment booking confirmations
+- Telemedicine session bookings (includes room code + join link)
+
+Without SMTP credentials the system logs email content to the console (simulation mode).
+
 ---
 
 ## White-Label / Branding
