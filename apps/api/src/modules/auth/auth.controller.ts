@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
+import { sendEmail, passwordResetEmail, passwordChangedEmail } from '../../lib/email';
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { username, password } = req.body;
@@ -180,6 +181,12 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
     });
   }
 
+  // Notify user (non-blocking)
+  if (user.email) {
+    const template = passwordChangedEmail({ name: user.displayName || user.username });
+    sendEmail({ ...template, to: user.email }).catch(() => { /* non-fatal */ });
+  }
+
   successResponse(res, null, 'Password changed successfully');
 });
 
@@ -219,25 +226,38 @@ export const forgotPassword = asyncHandler(async (req: Request, res: Response) =
     data: { userId: user.id, token: rawToken, expiresAt },
   });
 
-  // If the user has a phone, attempt SMS via Semaphore
+  const appUrl = process.env['APP_URL'] || 'http://localhost:5175';
+  const resetUrl = `${appUrl}/reset-password?token=${rawToken}`;
+
+  // Send email if user has an email address (non-blocking)
+  if (user.email) {
+    const template = passwordResetEmail({
+      name:      user.displayName || user.username,
+      resetUrl,
+      expiresIn: '1 hour',
+    });
+    sendEmail({ ...template, to: user.email }).catch(() => { /* non-fatal */ });
+  }
+
+  // Also attempt SMS if the user has a phone
   if (user.phone) {
     try {
       const { sendResetSms } = await import('../sms/sms.service');
       await sendResetSms(user.phone, rawToken);
     } catch {
-      // Non-fatal — fall through and still return the token in dev
+      // Non-fatal
     }
   }
 
-  // In development, return the token directly so it can be used without SMS
+  // In development, return the token directly so it can be used without email/SMS
   const isDev = process.env.NODE_ENV !== 'production';
 
   successResponse(
     res,
-    isDev ? { resetToken: rawToken, expiresAt } : null,
+    isDev ? { resetToken: rawToken, expiresAt, resetUrl } : null,
     isDev
       ? 'Reset token generated (dev mode — token returned in response)'
-      : 'If an account exists, a reset link has been sent'
+      : 'If an account exists, a reset link has been sent to your email'
   );
 });
 
@@ -289,6 +309,14 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
     // Invalidate all sessions
     prisma.session.deleteMany({ where: { userId: record.userId } }),
   ]);
+
+  // Notify user their password was changed
+  if (record.user.email) {
+    const template = passwordChangedEmail({
+      name: record.user.displayName || record.user.username,
+    });
+    sendEmail({ ...template, to: record.user.email }).catch(() => { /* non-fatal */ });
+  }
 
   successResponse(res, null, 'Password reset successfully. Please log in with your new password.');
 });

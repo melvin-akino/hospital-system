@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
+import { sendEmail, telemedicineBookingEmail } from '../../lib/email';
 
 function generateSessionNo(count: number): string {
   const year = new Date().getFullYear();
@@ -80,7 +81,7 @@ export const bookSession = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const [patient, doctor] = await Promise.all([
-    prisma.patient.findUnique({ where: { id: patientId } }),
+    prisma.patient.findUnique({ where: { id: patientId }, select: { id: true, firstName: true, lastName: true, phone: true, email: true } }),
     prisma.doctor.findUnique({ where: { id: doctorId } }),
   ]);
 
@@ -103,6 +104,21 @@ export const bookSession = asyncHandler(async (req: Request, res: Response) => {
   const session = await prisma.telemedicineSession.create({
     data: { sessionNo, patientId, doctorId, scheduledAt: new Date(scheduledAt), status: 'SCHEDULED', roomCode, notes: notes ?? '' },
   });
+
+  // Send booking confirmation email (non-blocking)
+  if (patient.email) {
+    const apptDate = new Date(scheduledAt);
+    const appUrl = process.env['APP_URL'] || 'http://localhost:5175';
+    const joinUrl = `${appUrl}/telemedicine/room/${roomCode}?sessionId=${session.id}`;
+    const template = telemedicineBookingEmail({
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      doctorName:  `Dr. ${doctor.firstName} ${doctor.lastName}`,
+      scheduledAt: apptDate.toLocaleString('en-PH', { dateStyle: 'full', timeStyle: 'short' }),
+      roomCode,
+      joinUrl,
+    });
+    sendEmail({ ...template, to: patient.email }).catch(() => { /* non-fatal */ });
+  }
 
   successResponse(res, await enrichSession(session), 'Telemedicine session booked', 201);
 });

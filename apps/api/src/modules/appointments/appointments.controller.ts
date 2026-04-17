@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
 import { generateAppointmentNo } from '../../utils/generateNo';
+import { sendEmail, appointmentConfirmationEmail } from '../../lib/email';
 
 export const getAppointments = asyncHandler(async (req: Request, res: Response) => {
   const { doctorId, patientId, status, date, page = '1', limit = '20' } = req.query;
@@ -66,6 +67,14 @@ export const createAppointment = asyncHandler(async (req: Request, res: Response
 
   const appointmentNo = await generateAppointmentNo();
 
+  // Fetch doctor info if provided
+  const doctor = doctorId
+    ? await prisma.doctor.findUnique({
+        where: { id: doctorId },
+        include: { department: { select: { name: true } } },
+      })
+    : null;
+
   const appointment = await prisma.appointment.create({
     data: {
       appointmentNo,
@@ -78,9 +87,25 @@ export const createAppointment = asyncHandler(async (req: Request, res: Response
       status: 'SCHEDULED',
     },
     include: {
-      patient: { select: { id: true, patientNo: true, firstName: true, lastName: true } },
+      patient: { select: { id: true, patientNo: true, firstName: true, lastName: true, email: true } },
     },
   });
+
+  // Send confirmation email if patient has an email (non-blocking)
+  if (appointment.patient.email) {
+    const apptDate = new Date(scheduledAt);
+    const portalUrl = `${process.env['APP_URL'] || 'http://localhost:5175'}/appointments`;
+    const template = appointmentConfirmationEmail({
+      patientName:     `${appointment.patient.firstName} ${appointment.patient.lastName}`,
+      doctorName:      doctor ? `${doctor.firstName} ${doctor.lastName}` : 'Your doctor',
+      department:      doctor?.department?.name ?? 'General',
+      appointmentDate: apptDate.toLocaleDateString('en-PH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      appointmentTime: apptDate.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }),
+      type:            'Consultation',
+      portalUrl,
+    });
+    sendEmail({ ...template, to: appointment.patient.email }).catch(() => { /* non-fatal */ });
+  }
 
   successResponse(res, appointment, 'Appointment booked', 201);
 });
