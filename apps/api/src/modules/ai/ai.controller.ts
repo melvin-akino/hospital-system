@@ -2,6 +2,12 @@ import { Request, Response } from 'express';
 import asyncHandler from 'express-async-handler';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
+import {
+  llmDiagnose,
+  llmCheckInteractions,
+  llmVitalSignsNarrative,
+  isAIEnabled,
+} from './ai.service';
 
 // ============ SYMPTOM RULES ============
 interface SymptomRule {
@@ -271,7 +277,26 @@ export const diagnose = asyncHandler(async (req: Request, res: Response) => {
 
   const normalizedSymptoms = (symptoms as string[]).map((s) => s.toLowerCase().trim());
 
-  // Score each rule by symptom match
+  // ── Try LLM first ─────────────────────────────────────────────────────────
+  const llmResult = await llmDiagnose(
+    normalizedSymptoms,
+    age ? Number(age) : null,
+    (gender as string | undefined) ?? null,
+  );
+
+  if (llmResult) {
+    successResponse(res, {
+      suggestions:   llmResult,
+      inputSymptoms: normalizedSymptoms,
+      aiEngine:      'llm',
+      aiEnabled:     true,
+      disclaimer:
+        'This AI output is for clinical decision support only. It is not a substitute for professional clinical judgment, physical examination, or laboratory testing.',
+    });
+    return;
+  }
+
+  // ── Rule-based fallback ───────────────────────────────────────────────────
   const scored = SYMPTOM_RULES.map((rule) => {
     const matchCount = rule.symptoms.filter((rs) =>
       normalizedSymptoms.some((ns) => ns.includes(rs) || rs.includes(ns))
@@ -304,6 +329,8 @@ export const diagnose = asyncHandler(async (req: Request, res: Response) => {
   successResponse(res, {
     suggestions,
     inputSymptoms: normalizedSymptoms,
+    aiEngine:  'rule-based',
+    aiEnabled: isAIEnabled(),
     disclaimer:
       'This AI output is for clinical decision support only. It is not a substitute for professional clinical judgment, physical examination, or laboratory testing.',
   });
@@ -405,6 +432,36 @@ export const checkDrugInteractions = asyncHandler(async (req: Request, res: Resp
     }
   }
 
+  // ── Augment with LLM if API key configured ────────────────────────────────
+  const medNamesForLlm = medications.map((m) => m.medication?.genericName ?? m.itemName);
+  const llmInteractions = await llmCheckInteractions(medNamesForLlm);
+
+  if (llmInteractions) {
+    // Merge: prefer LLM results, keep any rule-based ones not found by LLM
+    const llmPairs = new Set(llmInteractions.map(i => `${i.drug1.toLowerCase()}|${i.drug2.toLowerCase()}`));
+    const ruleOnlyInteractions = interactions.filter(i => {
+      const pair1 = `${i.drug1.toLowerCase()}|${i.drug2.toLowerCase()}`;
+      const pair2 = `${i.drug2.toLowerCase()}|${i.drug1.toLowerCase()}`;
+      return !llmPairs.has(pair1) && !llmPairs.has(pair2);
+    });
+    const merged = [...llmInteractions, ...ruleOnlyInteractions];
+
+    successResponse(res, {
+      interactions: merged,
+      safe: merged.length === 0,
+      checkedMedications: medications.map((m) => ({
+        id: m.id,
+        name: m.medication?.genericName ?? m.itemName,
+        brandName: m.medication?.brandName,
+      })),
+      aiEngine:  'llm',
+      aiEnabled: true,
+      disclaimer:
+        'Drug interaction checking is for clinical decision support only. Always consult a clinical pharmacist for complex regimens.',
+    });
+    return;
+  }
+
   const safe = interactions.length === 0;
   successResponse(res, {
     interactions,
@@ -414,6 +471,8 @@ export const checkDrugInteractions = asyncHandler(async (req: Request, res: Resp
       name: m.medication?.genericName ?? m.itemName,
       brandName: m.medication?.brandName,
     })),
+    aiEngine:  'rule-based',
+    aiEnabled: isAIEnabled(),
     disclaimer:
       'Drug interaction checking is for clinical decision support only. Always consult a clinical pharmacist for complex regimens.',
   });
@@ -919,11 +978,27 @@ export const analyzeVitalSigns = asyncHandler(async (req: Request, res: Response
       ? 'WATCH'
       : 'NORMAL';
 
+  // ── LLM narrative (non-blocking, augments but doesn't replace) ────────────
+  const patientAge = Math.floor(
+    (Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600 * 1000)
+  );
+  const llmNarrative = await llmVitalSignsNarrative(alerts, patientAge);
+
   successResponse(res, {
     alerts,
     overallStatus,
     latestVitals: latest,
     vitalsHistory: patient.vitalSigns,
+    ...(llmNarrative ? {
+      clinicalSummary:  llmNarrative.clinicalSummary,
+      priorityActions:  llmNarrative.priorityActions,
+      urgencyLevel:     llmNarrative.urgencyLevel,
+      aiEngine:         'llm',
+      aiEnabled:        true,
+    } : {
+      aiEngine:  'rule-based',
+      aiEnabled: isAIEnabled(),
+    }),
     disclaimer:
       'Vital signs analysis is automated and for clinical decision support. Always correlate with patient clinical status.',
   });

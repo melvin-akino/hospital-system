@@ -56,6 +56,7 @@ intelligent Hospital Information System (iHIMS) — full hospital management sys
 | PayMongo Payment Gateway | ✅ | ✅ | Prisma | GCash/Maya links + card intents; simulation fallback |
 | PhilHealth eClaims API | ✅ | ✅ | Prisma | Real REST calls to eClaims gateway; simulation fallback when creds absent |
 | HMO Direct Billing API | ✅ | ✅ | Prisma | Maxicare (OAuth2), Philam, Intellicare; per-HMO simulation fallback |
+| WebRTC Telemedicine Video | ✅ | ✅ | Socket.io | P2P video/audio via RTCPeerConnection; screen share; real-time chat relay |
 
 ---
 
@@ -75,11 +76,6 @@ All 6 previously flat-file modules now use Prisma/PostgreSQL:
 ---
 
 ## Stub / Missing Features ❌
-
-### 🟡 Medium Priority — Large Effort
-| Gap | Description |
-|-----|-------------|
-| Real Telemedicine Video (WebRTC) | VideoConsultationPage has media refs but no signaling server |
 
 ### 🟢 Low Priority
 | Gap | Description |

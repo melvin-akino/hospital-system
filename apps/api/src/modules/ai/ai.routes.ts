@@ -7,8 +7,15 @@ import {
   checkAllergiesContraindications,
   analyzeVitalSigns,
 } from './ai.controller';
+import { isAIEnabled } from './ai.service';
+import { successResponse } from '../../utils/response';
 
 const router = Router();
+
+// Public: AI capability config (used by frontend to show AI badge)
+router.get('/ai/config', (_req, res) => {
+  successResponse(res, { aiEnabled: isAIEnabled(), model: process.env['AI_MODEL'] || 'claude-haiku-4-5-20251001' });
+});
 
 router.use(authenticate);
 
