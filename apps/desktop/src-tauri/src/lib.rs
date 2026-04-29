@@ -73,14 +73,24 @@ fn launch_api_sidecar(app: &AppHandle, api_state: &ApiState) {
     let ready_flag = Arc::clone(&api_state.ready);
     let app_handle = app.clone();
 
+    // Resolve the app data directory so the sidecar can store
+    // embedded PostgreSQL data there
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| String::new());
+
     // Spawn Node.js API as a sidecar
     // The sidecar binary is bundled at: src-tauri/binaries/api-server-{target}
     match app.shell().sidecar("api-server") {
         Ok(sidecar) => {
             let env_vars = vec![
-                ("NODE_ENV", "production"),
-                ("PORT", "3001"),
-                ("JWT_SECRET", "pibs-desktop-secret-2025"),
+                ("NODE_ENV",    "production"),
+                ("PORT",        "3001"),
+                ("JWT_SECRET",  "pibs-desktop-secret-2025"),
+                ("EMBEDDED_DB", "true"),
+                ("APP_DATA_DIR", app_data_dir.as_str()),
             ];
 
             match sidecar
