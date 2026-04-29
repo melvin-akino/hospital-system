@@ -7,6 +7,24 @@ import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/response';
 import { sendEmail, passwordResetEmail, passwordChangedEmail } from '../../lib/email';
 
+/**
+ * Returns an error string if the password fails the complexity policy,
+ * or null if it passes.
+ *
+ * Policy: min 8 chars, at least 1 uppercase letter, 1 digit, 1 special char.
+ */
+export function validatePasswordStrength(password: string): string | null {
+  if (!password || password.length < 8)
+    return 'Password must be at least 8 characters.';
+  if (!/[A-Z]/.test(password))
+    return 'Password must contain at least one uppercase letter.';
+  if (!/[0-9]/.test(password))
+    return 'Password must contain at least one number.';
+  if (!/[^A-Za-z0-9]/.test(password))
+    return 'Password must contain at least one special character (e.g. !@#$%).';
+  return null;
+}
+
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
@@ -119,6 +137,12 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
+  const pwErr = validatePasswordStrength(password);
+  if (pwErr) {
+    errorResponse(res, pwErr, 400);
+    return;
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
 
   const user = await prisma.user.create({
@@ -171,8 +195,9 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
     return;
   }
 
-  if (newPassword.length < 8) {
-    errorResponse(res, 'New password must be at least 8 characters', 400);
+  const pwErr = validatePasswordStrength(newPassword);
+  if (pwErr) {
+    errorResponse(res, pwErr, 400);
     return;
   }
 

@@ -143,6 +143,18 @@ async function bootstrapDatabase(adminUrl: string, dbUrl: string): Promise<void>
   await dbClient.end();
   console.log('[PIBS DB] Schema migration complete');
 
+  // ── Run seed data ──────────────────────────────────────────────────────────
+  console.log('[PIBS DB] Seeding initial data...');
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const { runSeed } = await import('./seed');
+    const seedPrisma = new PrismaClient({ datasources: { db: { url: dbUrl } } });
+    await runSeed(seedPrisma);
+    await seedPrisma.$disconnect();
+  } catch (err: any) {
+    console.warn('[PIBS DB] Seed warning (non-fatal):', err.message);
+  }
+
   // ── Mark setup done ────────────────────────────────────────────────────────
   const appDataDir   = resolveAppDataDir();
   const setupMarker  = path.join(appDataDir, '.setup-complete');

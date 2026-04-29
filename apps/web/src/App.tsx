@@ -149,9 +149,10 @@ const HIEDashboardPage = lazy(() => import('./pages/hie/HIEDashboardPage'));
 const DepartmentListPage = lazy(() => import('./pages/departments/DepartmentListPage'));
 
 // Settings, User Management, Audit Log
-const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
+const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage'));
+const BackupPage         = lazy(() => import('./pages/settings/BackupPage'));
 const UserManagementPage = lazy(() => import('./pages/users/UserManagementPage'));
-const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage'));
+const AuditLogPage       = lazy(() => import('./pages/audit/AuditLogPage'));
 
 // Department Charges & Approval Queue
 const DepartmentChargesPage = lazy(() => import('./pages/dept-charges/DepartmentChargesPage'));
@@ -436,6 +437,7 @@ const App: React.FC = () => {
 
           {/* ── Administration ── */}
           <Route path="/settings" element={<Guard roles={ADMIN_ROLES}><SettingsPage /></Guard>} />
+          <Route path="/settings/backup" element={<Guard roles={ADMIN_ROLES}><BackupPage /></Guard>} />
           <Route path="/users" element={<Guard roles={ADMIN_ROLES}><UserManagementPage /></Guard>} />
           <Route path="/audit-log" element={<Guard roles={ADMIN_ROLES}><AuditLogPage /></Guard>} />
 

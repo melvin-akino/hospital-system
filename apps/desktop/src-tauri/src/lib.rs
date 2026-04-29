@@ -40,6 +40,77 @@ fn get_app_version(app: AppHandle) -> String {
     app.package_info().version.to_string()
 }
 
+/// Trigger a manual database backup.
+/// Runs pg_dump against the embedded PostgreSQL and saves a .sql dump to the
+/// backups/ folder inside the app data directory.
+/// Returns the path to the created backup file.
+#[tauri::command]
+async fn backup_database(app: AppHandle) -> Result<String, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let backup_dir = app_data_dir.join("backups");
+    std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+
+    let ts = chrono::Local::now().format("%Y%m%d_%H%M%S");
+    let filename = format!("pibs_db_{}.sql", ts);
+    let backup_path = backup_dir.join(&filename);
+
+    // pg_dump from the embedded PostgreSQL (port 5433)
+    let output = std::process::Command::new("pg_dump")
+        .env("PGPASSWORD", "pibs_secret")
+        .args([
+            "-h", "localhost",
+            "-p", "5433",
+            "-U", "pibs",
+            "-d", "pibs_db",
+            "-f", backup_path.to_str().unwrap_or(""),
+        ])
+        .output()
+        .map_err(|e| format!("pg_dump not found or failed: {}", e))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("pg_dump error: {}", err));
+    }
+
+    println!("[PIBS] Backup saved: {}", backup_path.display());
+    Ok(backup_path.to_string_lossy().to_string())
+}
+
+/// List existing backup files (newest first)
+#[tauri::command]
+async fn list_backups(app: AppHandle) -> Result<Vec<String>, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let backup_dir = app_data_dir.join("backups");
+    if !backup_dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut files: Vec<(std::time::SystemTime, String)> = std::fs::read_dir(&backup_dir)
+        .map_err(|e| e.to_string())?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+            if path.extension()?.to_str()? == "sql" {
+                let modified = entry.metadata().ok()?.modified().ok()?;
+                Some((modified, path.to_string_lossy().to_string()))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    files.sort_by(|a, b| b.0.cmp(&a.0)); // newest first
+    Ok(files.into_iter().map(|(_, p)| p).collect())
+}
+
 // ── API health polling ────────────────────────────────────────────────────────
 
 async fn wait_for_api(api_url: String, state: Arc<Mutex<bool>>, app: AppHandle) {
@@ -252,6 +323,8 @@ pub fn run() {
             is_api_ready,
             open_external,
             get_app_version,
+            backup_database,
+            list_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
