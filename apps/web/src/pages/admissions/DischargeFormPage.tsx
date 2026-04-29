@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useAdmission, useDischargePatient } from '../../hooks/useAdmissions';
 import { exportDischargePDF } from '../../utils/pdfExport';
+import { DischargeSummaryPanel } from '../../components/ai';
 
 const { Title, Text } = Typography;
 
@@ -67,7 +68,16 @@ const DischargeFormPage: React.FC = () => {
         </Descriptions>
       </Card>
 
-      <Card title="Discharge Information">
+      {/* AI Discharge Summary — shown when patient is admitted or discharged */}
+      {admission.patient?.id && (
+        <DischargeSummaryPanel
+          patientId={admission.patient.id}
+          admissionId={admission.id}
+          patientName={`${admission.patient.firstName} ${admission.patient.lastName}`}
+        />
+      )}
+
+      <Card title="Discharge Information" style={{ marginTop: 16 }}>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Row gutter={16}>
             <Col xs={24} md={12}>

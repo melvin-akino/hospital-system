@@ -13,11 +13,12 @@ import {
   Spin,
   Alert,
 } from 'antd';
-import { EditOutlined, ArrowLeftOutlined, FileTextOutlined, DollarOutlined, ReadOutlined } from '@ant-design/icons';
+import { EditOutlined, ArrowLeftOutlined, FileTextOutlined, DollarOutlined, ReadOutlined, RobotOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { usePatient, usePatientHistory } from '../../hooks/usePatients';
 import type { Consultation, Bill } from '../../types';
+import { SOAPNotePanel, LabInterpretationPanel } from '../../components/ai';
 
 const { Title, Text } = Typography;
 
@@ -256,6 +257,27 @@ const PatientDetailPage: React.FC = () => {
                 size="small"
                 pagination={false}
               />
+            ),
+          },
+          {
+            key: 'ai',
+            label: (
+              <span>
+                <RobotOutlined style={{ color: '#1677ff', marginRight: 4 }} />
+                AI Assist
+              </span>
+            ),
+            children: (
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <SOAPNotePanel
+                  patientId={p.id}
+                  patientName={`${p.firstName} ${p.lastName}`}
+                />
+                <LabInterpretationPanel
+                  patientId={p.id}
+                  patientName={`${p.firstName} ${p.lastName}`}
+                />
+              </Space>
             ),
           },
         ]}

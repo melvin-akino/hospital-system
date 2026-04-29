@@ -6,8 +6,12 @@ import {
   llmDiagnose,
   llmCheckInteractions,
   llmVitalSignsNarrative,
+  llmGenerateSOAPNote,
+  llmInterpretLabResults,
+  llmGenerateDischargeSummary,
   isAIEnabled,
 } from './ai.service';
+import { buildPatientContext, formatContextForPrompt } from './ai.context';
 
 // ============ SYMPTOM RULES ============
 interface SymptomRule {
@@ -1001,5 +1005,227 @@ export const analyzeVitalSigns = asyncHandler(async (req: Request, res: Response
     }),
     disclaimer:
       'Vital signs analysis is automated and for clinical decision support. Always correlate with patient clinical status.',
+  });
+});
+
+// ============ POST /api/ai/soap-note ============
+export const generateSOAPNote = asyncHandler(async (req: Request, res: Response) => {
+  const { patientId, consultationId } = req.body;
+
+  if (!patientId) {
+    errorResponse(res, 'patientId is required', 400);
+    return;
+  }
+
+  if (!isAIEnabled()) {
+    errorResponse(res, 'AI features require ANTHROPIC_API_KEY to be configured.', 503);
+    return;
+  }
+
+  // Build patient context
+  const ctx = await buildPatientContext(patientId as string);
+  if (!ctx) {
+    errorResponse(res, 'Patient not found', 404);
+    return;
+  }
+
+  // Optionally pull consultation-specific data
+  let chiefComplaint: string | undefined;
+  let findings: string | undefined;
+  let assessment: string | undefined;
+  let treatmentPlan: string | undefined;
+
+  if (consultationId) {
+    const consultation = await prisma.consultation.findUnique({
+      where: { id: consultationId as string },
+      include: { doctor: { select: { firstName: true, lastName: true, specialty: true } } },
+    });
+    if (consultation) {
+      chiefComplaint = consultation.chiefComplaint ?? undefined;
+      findings       = consultation.findings       ?? undefined;
+      assessment     = consultation.assessment     ?? undefined;
+      treatmentPlan  = consultation.treatmentPlan  ?? undefined;
+    }
+  }
+
+  const contextText = formatContextForPrompt(ctx);
+  const result = await llmGenerateSOAPNote(contextText, chiefComplaint, findings, assessment, treatmentPlan);
+
+  if (!result) {
+    errorResponse(res, 'Failed to generate SOAP note — AI service unavailable.', 502);
+    return;
+  }
+
+  successResponse(res, {
+    ...result,
+    patientId,
+    consultationId: consultationId ?? null,
+    generatedAt: new Date().toISOString(),
+    aiEngine: 'llm',
+    aiEnabled: true,
+    disclaimer: 'AI-generated SOAP note is a documentation aid. Physician review, editing, and countersignature required before filing.',
+  });
+});
+
+// ============ POST /api/ai/interpret-labs ============
+export const interpretLabResults = asyncHandler(async (req: Request, res: Response) => {
+  const { patientId, labResultIds, requisitionId } = req.body;
+
+  if (!patientId) {
+    errorResponse(res, 'patientId is required', 400);
+    return;
+  }
+
+  if (!isAIEnabled()) {
+    errorResponse(res, 'AI features require ANTHROPIC_API_KEY to be configured.', 503);
+    return;
+  }
+
+  const ctx = await buildPatientContext(patientId as string);
+  if (!ctx) {
+    errorResponse(res, 'Patient not found', 404);
+    return;
+  }
+
+  // Resolve which lab results to interpret
+  let labResults;
+  if (Array.isArray(labResultIds) && labResultIds.length > 0) {
+    labResults = await prisma.labResult.findMany({
+      where: { id: { in: labResultIds as string[] }, patientId: patientId as string },
+    });
+  } else if (requisitionId) {
+    labResults = await prisma.labResult.findMany({
+      where: { requisitionId: requisitionId as string, patientId: patientId as string },
+    });
+  } else {
+    // Default: most recent 30 days of results
+    labResults = await prisma.labResult.findMany({
+      where: {
+        patientId: patientId as string,
+        performedAt: { gte: new Date(Date.now() - 30 * 24 * 3600 * 1000) },
+      },
+      orderBy: { performedAt: 'desc' },
+      take: 30,
+    });
+  }
+
+  if (!labResults || labResults.length === 0) {
+    errorResponse(res, 'No lab results found for the specified criteria', 404);
+    return;
+  }
+
+  const contextText = formatContextForPrompt(ctx);
+  const labData = labResults.map(lr => ({
+    testName:       lr.testName,
+    result:         lr.result,
+    unit:           lr.unit,
+    referenceRange: lr.referenceRange,
+    isAbnormal:     lr.isAbnormal,
+  }));
+
+  const result = await llmInterpretLabResults(contextText, labData);
+
+  if (!result) {
+    errorResponse(res, 'Failed to interpret lab results — AI service unavailable.', 502);
+    return;
+  }
+
+  successResponse(res, {
+    ...result,
+    patientId,
+    labResultCount: labResults.length,
+    generatedAt: new Date().toISOString(),
+    aiEngine: 'llm',
+    aiEnabled: true,
+    disclaimer: 'AI lab interpretation is for clinical decision support only. Correlation with clinical findings and physician judgment is required.',
+  });
+});
+
+// ============ POST /api/ai/discharge-summary ============
+export const generateDischargeSummary = asyncHandler(async (req: Request, res: Response) => {
+  const { patientId, admissionId } = req.body;
+
+  if (!patientId || !admissionId) {
+    errorResponse(res, 'patientId and admissionId are required', 400);
+    return;
+  }
+
+  if (!isAIEnabled()) {
+    errorResponse(res, 'AI features require ANTHROPIC_API_KEY to be configured.', 503);
+    return;
+  }
+
+  const ctx = await buildPatientContext(patientId as string);
+  if (!ctx) {
+    errorResponse(res, 'Patient not found', 404);
+    return;
+  }
+
+  // Load admission with all related data
+  const admission = await prisma.admission.findUnique({
+    where: { id: admissionId as string },
+    include: {
+      department:   { select: { name: true } },
+      room:         { select: { roomNumber: true } },
+      clinicalNotes: {
+        orderBy: { createdAt: 'asc' },
+        select: { noteType: true, content: true, createdAt: true, authorName: true },
+        take: 10,
+      },
+      orderedServices: {
+        where:   { status: 'COMPLETED' },
+        select:  { description: true, completedAt: true },
+        take:    20,
+      },
+      surgeries: {
+        select: { procedure: true, startedAt: true, postOpNotes: true },
+      },
+    },
+  });
+
+  if (!admission) {
+    errorResponse(res, 'Admission not found', 404);
+    return;
+  }
+
+  // Build admission data payload for AI
+  const procedures: string[] = [
+    ...admission.surgeries.map(s => s.procedure),
+    ...admission.orderedServices
+      .filter(s => s.description && !s.description.toLowerCase().includes('room'))
+      .map(s => s.description),
+  ];
+
+  const noteTexts = admission.clinicalNotes.map(
+    n => `[${n.noteType} — ${n.authorName ?? 'Unknown'} — ${n.createdAt.toISOString().slice(0, 10)}]\n${n.content}`
+  );
+
+  const admissionData = {
+    admissionDate:   admission.admittedAt.toISOString().slice(0, 10),
+    dischargeDate:   admission.dischargedAt?.toISOString().slice(0, 10),
+    chiefComplaint:  admission.chiefComplaint ?? undefined,
+    diagnosis:       admission.diagnosis      ?? undefined,
+    attendingDoctor: admission.attendingDoctor ?? undefined,
+    department:      admission.department?.name,
+    procedures:      [...new Set(procedures)].slice(0, 15),
+    notes:           noteTexts,
+  };
+
+  const contextText = formatContextForPrompt(ctx);
+  const result = await llmGenerateDischargeSummary(contextText, admissionData);
+
+  if (!result) {
+    errorResponse(res, 'Failed to generate discharge summary — AI service unavailable.', 502);
+    return;
+  }
+
+  successResponse(res, {
+    ...result,
+    patientId,
+    admissionId,
+    generatedAt: new Date().toISOString(),
+    aiEngine: 'llm',
+    aiEnabled: true,
+    disclaimer: 'AI-generated discharge summary requires physician review and signature before distribution to patient or submission to PhilHealth/HMO.',
   });
 });
