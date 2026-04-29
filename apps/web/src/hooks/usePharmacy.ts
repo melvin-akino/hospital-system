@@ -109,10 +109,17 @@ export const useExpiryAlerts = () =>
     queryFn: pharmacyService.getExpiryAlerts,
   });
 
-export const useSuppliers = () =>
+export const useSuppliers = (params?: Record<string, unknown>) =>
   useQuery({
-    queryKey: ['suppliers'],
-    queryFn: pharmacyService.getSuppliers,
+    queryKey: ['suppliers', params],
+    queryFn: () => pharmacyService.getSuppliers(params),
+  });
+
+export const useSupplier = (id: string) =>
+  useQuery({
+    queryKey: ['supplier', id],
+    queryFn: () => pharmacyService.getSupplier(id),
+    enabled: !!id,
   });
 
 export const useCreateSupplier = () => {
@@ -124,7 +131,35 @@ export const useCreateSupplier = () => {
       qc.invalidateQueries({ queryKey: ['suppliers'] });
       message.success('Supplier created');
     },
-    onError: () => message.error('Failed to create supplier'),
+    onError: (e: any) => message.error(e?.response?.data?.message || 'Failed to create supplier'),
+  });
+};
+
+export const useUpdateSupplier = () => {
+  const qc = useQueryClient();
+  const { message } = App.useApp();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
+      pharmacyService.updateSupplier(id, data),
+    onSuccess: (_: any, v: any) => {
+      qc.invalidateQueries({ queryKey: ['suppliers'] });
+      qc.invalidateQueries({ queryKey: ['supplier', v.id] });
+      message.success('Supplier updated');
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message || 'Failed to update supplier'),
+  });
+};
+
+export const useDeleteSupplier = () => {
+  const qc = useQueryClient();
+  const { message } = App.useApp();
+  return useMutation({
+    mutationFn: (id: string) => pharmacyService.deleteSupplier(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['suppliers'] });
+      message.success('Supplier deactivated');
+    },
+    onError: (e: any) => message.error(e?.response?.data?.message || 'Failed to deactivate supplier'),
   });
 };
 

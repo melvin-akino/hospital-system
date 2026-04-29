@@ -11,6 +11,7 @@ import { router } from './routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { initSocket } from './lib/socket';
+import { setupSwagger } from './lib/swagger';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -47,6 +48,9 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api', limiter);
+
+// API Documentation (Swagger UI at /api/docs)
+setupSwagger(app);
 
 // Routes
 app.use('/api', router);

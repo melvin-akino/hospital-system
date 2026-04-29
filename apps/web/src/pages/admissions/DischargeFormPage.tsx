@@ -26,7 +26,7 @@ const DischargeFormPage: React.FC = () => {
         dischargedAt: values.dischargedAt ? values.dischargedAt.toISOString() : undefined,
       },
     });
-    navigate('/admissions/list');
+    navigate(`/admissions/${id}/discharge-summary`);
   };
 
   if (isLoading) return <div className="page-container"><Text>Loading...</Text></div>;

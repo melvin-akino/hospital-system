@@ -42,23 +42,34 @@ import {
   GlobalOutlined,
   ApartmentOutlined,
   FileSearchOutlined,
+  ShopOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore, type AuthUser } from '../../store/authStore';
+import { useBrandingStore } from '../../store/brandingStore';
 
 const { Sider } = Layout;
 
-// ── Role sets (mirror App.tsx) ────────────────────────────────────────────────
-const ADMIN_ROLES       = ['SUPER_ADMIN', 'ADMIN'];
-const CLINICAL_ROLES    = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
-const BILLING_ROLES     = ['SUPER_ADMIN', 'ADMIN', 'BILLING', 'RECEPTIONIST'];
-const PHARMACY_ROLES    = ['SUPER_ADMIN', 'ADMIN', 'PHARMACIST'];
-const LAB_ROLES         = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'LAB_TECH'];
-const RADIOLOGY_ROLES   = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RADIOLOGY_TECH'];
-const NURSING_ROLES     = ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR'];
-const ACCOUNTING_ROLES  = ['SUPER_ADMIN', 'ADMIN', 'BILLING'];
-const ALL_STAFF         = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGY_TECH'];
-const DOCTOR_ADMIN      = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'];
-const LAB_OR_RADIOLOGY  = [...new Set([...LAB_ROLES, ...RADIOLOGY_ROLES])];
+// ── Role sets ─────────────────────────────────────────────────────────────────
+const ADMIN_ROLES          = ['SUPER_ADMIN', 'ADMIN'];
+const CLINICAL_ROLES       = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
+const BILLING_ROLES        = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'BILLING', 'RECEPTIONIST'];
+const BILLING_MGMT_ROLES   = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'BILLING'];
+const BILLING_SUPER_ROLES  = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR'];
+const PHARMACY_ROLES       = ['SUPER_ADMIN', 'ADMIN', 'PHARMACIST'];
+const LAB_ROLES            = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'LAB_TECH'];
+const RADIOLOGY_ROLES      = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RADIOLOGY_TECH'];
+const NURSING_ROLES        = ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR'];
+const ACCOUNTING_ROLES     = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'BILLING'];
+const ALL_STAFF            = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGY_TECH'];
+const DOCTOR_ADMIN         = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'];
+const LAB_OR_RADIOLOGY     = [...new Set([...LAB_ROLES, ...RADIOLOGY_ROLES])];
+// Department workspace role sets
+const ER_ROLES             = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
+const WORKSPACE_ROLES      = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'];
+const NURSING_STATION_ROLES= ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR', 'RECEPTIONIST'];
+const MEDREC_ROLES         = ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR', 'RECEPTIONIST'];
+const DEPT_WORKSPACE_ROLES = [...new Set([...ER_ROLES, ...WORKSPACE_ROLES, ...PHARMACY_ROLES, ...LAB_ROLES, ...RADIOLOGY_ROLES, ...ALL_STAFF])];
 
 // ── Menu item type ─────────────────────────────────────────────────────────────
 interface RawMenuItem {
@@ -66,6 +77,7 @@ interface RawMenuItem {
   icon?: React.ReactNode;
   label?: string;
   roles: string[];
+  permissionModule?: string; // if set, user can also access via UserPermission.canView
   type?: 'divider';
   children?: RawMenuItem[];
 }
@@ -76,6 +88,25 @@ const rawMenuItems: RawMenuItem[] = [
     icon: <DashboardOutlined />,
     label: 'Dashboard',
     roles: ALL_STAFF,
+  },
+  {
+    key: 'dept-workspaces',
+    icon: <AppstoreOutlined />,
+    label: 'My Workspace',
+    roles: DEPT_WORKSPACE_ROLES,
+    children: [
+      { key: '/er-dashboard',      icon: <AlertOutlined />,        label: 'ER Dashboard',       roles: ER_ROLES },
+      { key: '/workspace',         icon: <MedicineBoxOutlined />,  label: "Doctor's Workspace", roles: WORKSPACE_ROLES },
+      { key: '/nursing-station',   icon: <HeartOutlined />,        label: 'Nursing Station',    roles: NURSING_STATION_ROLES },
+      { key: '/or-dashboard',      icon: <ScissorOutlined />,      label: 'OR Dashboard',       roles: CLINICAL_ROLES },
+      { key: '/icu-dashboard',     icon: <MonitorOutlined />,      label: 'ICU / CCU',          roles: CLINICAL_ROLES },
+      { key: '/ob-dashboard',      icon: <HeartOutlined />,        label: 'OB / Delivery Room', roles: CLINICAL_ROLES },
+      { key: '/pharmacy-queue',    icon: <ShoppingCartOutlined />, label: 'Pharmacy Queue',     roles: PHARMACY_ROLES },
+      { key: '/lab-queue',         icon: <ExperimentOutlined />,   label: 'Lab Queue',          roles: LAB_ROLES },
+      { key: '/radiology-queue',   icon: <RadarChartOutlined />,   label: 'Radiology Queue',    roles: RADIOLOGY_ROLES },
+      { key: '/csr-queue',         icon: <ToolOutlined />,         label: 'CSR Queue',          roles: ALL_STAFF },
+      { key: '/medical-records',   icon: <FileTextOutlined />,     label: 'Medical Records',    roles: MEDREC_ROLES },
+    ],
   },
   {
     key: 'clinical',
@@ -104,7 +135,10 @@ const rawMenuItems: RawMenuItem[] = [
     label: 'Billing',
     roles: BILLING_ROLES,
     children: [
-      { key: '/billing', icon: <DollarOutlined />, label: 'Bills', roles: BILLING_ROLES },
+      { key: '/billing',                   icon: <DollarOutlined />,        label: 'Bills',                  roles: BILLING_ROLES },
+      { key: '/billing/ordered-services', icon: <ShoppingCartOutlined />,  label: 'Dept. Orders Queue',     roles: BILLING_MGMT_ROLES },
+      { key: '/dept-charges',             icon: <AppstoreOutlined />,      label: 'Department Charges',     roles: BILLING_MGMT_ROLES },
+      { key: '/charge-requests',          icon: <AuditOutlined />,         label: 'Approval Queue',         roles: BILLING_SUPER_ROLES },
     ],
   },
   {
@@ -122,6 +156,7 @@ const rawMenuItems: RawMenuItem[] = [
     label: 'Laboratory & Radiology',
     roles: LAB_OR_RADIOLOGY,
     children: [
+      { key: '/lab/work-queue',    icon: <ThunderboltOutlined />,label: 'Work Queue',        roles: LAB_ROLES },
       { key: '/lab/requisitions',  icon: <FileTextOutlined />,  label: 'Lab Requisitions', roles: LAB_ROLES },
       { key: '/lab/results',       icon: <ExperimentOutlined />,label: 'Lab Results',       roles: LAB_ROLES },
       { key: '/lab/radiology/new', icon: <RadarChartOutlined />,label: 'Radiology Orders',  roles: RADIOLOGY_ROLES },
@@ -133,10 +168,13 @@ const rawMenuItems: RawMenuItem[] = [
     label: 'Pharmacy',
     roles: PHARMACY_ROLES,
     children: [
-      { key: '/pharmacy/medications',          icon: <MedicineBoxOutlined />, label: 'Medications',     roles: PHARMACY_ROLES },
-      { key: '/pharmacy/inventory',            icon: <AppstoreOutlined />,    label: 'Inventory',       roles: PHARMACY_ROLES },
-      { key: '/pharmacy/alerts',               icon: <AlertOutlined />,       label: 'Stock Alerts',    roles: PHARMACY_ROLES },
-      { key: '/pharmacy/purchase-orders/new',  icon: <ShoppingCartOutlined />,label: 'Purchase Orders', roles: PHARMACY_ROLES },
+      { key: '/pharmacy/pos',                  icon: <DollarOutlined />,      label: 'POS Terminal',    roles: PHARMACY_ROLES },
+      { key: '/pharmacy/sales',               icon: <BarChartOutlined />,    label: 'Sales & Z-Report',roles: PHARMACY_ROLES },
+      { key: '/pharmacy/medications',         icon: <MedicineBoxOutlined />, label: 'Medications',     roles: PHARMACY_ROLES },
+      { key: '/pharmacy/inventory',           icon: <AppstoreOutlined />,    label: 'Inventory',       roles: PHARMACY_ROLES },
+      { key: '/pharmacy/suppliers',           icon: <ShopOutlined />,        label: 'Suppliers',       roles: PHARMACY_ROLES },
+      { key: '/pharmacy/alerts',              icon: <AlertOutlined />,       label: 'Stock Alerts',    roles: PHARMACY_ROLES },
+      { key: '/pharmacy/purchase-orders',     icon: <ShoppingCartOutlined />,label: 'Purchase Orders', roles: PHARMACY_ROLES },
     ],
   },
   {
@@ -201,12 +239,12 @@ const rawMenuItems: RawMenuItem[] = [
   {
     key: 'admissions-section',
     icon: <HomeOutlined />,
-    label: 'Rooms & Admissions',
+    label: 'Admitting & Rooms',
     roles: CLINICAL_ROLES,
     children: [
-      { key: '/admissions/rooms', icon: <HomeOutlined />,    label: 'Room Status',   roles: CLINICAL_ROLES },
-      { key: '/admissions/list',  icon: <FileTextOutlined />,label: 'Admissions',    roles: CLINICAL_ROLES },
-      { key: '/admissions/new',   icon: <UserOutlined />,    label: 'Admit Patient', roles: CLINICAL_ROLES },
+      { key: '/admitting',        icon: <UserOutlined />,    label: 'Admitting Desk',  roles: CLINICAL_ROLES },
+      { key: '/admissions/rooms', icon: <HomeOutlined />,    label: 'Room Status',     roles: CLINICAL_ROLES },
+      { key: '/admissions/list',  icon: <FileTextOutlined />,label: 'Admissions List', roles: CLINICAL_ROLES },
     ],
   },
   {
@@ -360,14 +398,26 @@ const rawMenuItems: RawMenuItem[] = [
   },
 ];
 
-// ── Filtering helper ───────────────────────────────────────────────────────────
-function filterItems(items: RawMenuItem[], userRole: string) {
+// ── Filtering helpers ──────────────────────────────────────────────────────────
+function canSeeItem(item: RawMenuItem, user: AuthUser): boolean {
+  // Role-based access
+  if (item.roles.includes(user.role)) return true;
+  // Extra permission granted by admin
+  if (item.permissionModule && user.permissions) {
+    return user.permissions.some(
+      (p) => p.module === item.permissionModule && p.canView
+    );
+  }
+  return false;
+}
+
+function filterItems(items: RawMenuItem[], user: AuthUser) {
   const result: RawMenuItem[] = [];
   for (const item of items) {
-    if (!item.roles.includes(userRole)) continue;
+    if (!canSeeItem(item, user)) continue;
 
     if (item.children) {
-      const filteredChildren = item.children.filter(c => c.roles.includes(userRole));
+      const filteredChildren = item.children.filter((c) => canSeeItem(c, user));
       if (filteredChildren.length === 0) continue;
       result.push({ ...item, children: filteredChildren });
     } else {
@@ -397,12 +447,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
   const location = useLocation();
   const { user } = useAuthStore();
   const { systemName, systemSubtitle, logoUrl, primaryColor, sidebarColor } = useBrandingStore();
-  const [openKeys, setOpenKeys] = useState<string[]>(['clinical', 'billing']);
+  const [openKeys, setOpenKeys] = useState<string[]>(['dept-workspaces', 'clinical', 'billing']);
 
   const selectedKey = location.pathname;
 
   const visibleItems = user
-    ? toAntItems(filterItems(rawMenuItems, user.role))
+    ? toAntItems(filterItems(rawMenuItems, user))
     : [];
 
   const handleMenuClick = ({ key }: { key: string }) => {

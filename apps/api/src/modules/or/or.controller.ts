@@ -30,16 +30,26 @@ const WHO_CHECKLIST = {
   ],
 };
 
+const surgeryInclude = {
+  surgeon: { select: { id: true, firstName: true, lastName: true, specialty: true, phone: true } },
+  patient: { select: { id: true, patientNo: true, firstName: true, lastName: true, bloodType: true, gender: true } },
+  admission: { select: { id: true, admissionNo: true, room: { include: { roomType: true } } } },
+};
+
 // GET /api/surgeries
 export const getSurgeries = asyncHandler(async (req: Request, res: Response) => {
   const { page, limit, skip } = getPagination(req);
-  const { status, from, to, surgeonId, search } = req.query;
+  const { status, from, to, surgeonId, search, today } = req.query;
 
   const where: Record<string, unknown> = {};
   if (status) where['status'] = status;
   if (surgeonId) where['surgeonId'] = surgeonId;
 
-  if (from || to) {
+  if (today === 'true') {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    where['scheduledAt'] = { gte: start, lte: end };
+  } else if (from || to) {
     where['scheduledAt'] = {
       ...(from && { gte: new Date(from as string) }),
       ...(to && { lte: new Date(to as string) }),
@@ -54,132 +64,67 @@ export const getSurgeries = asyncHandler(async (req: Request, res: Response) => 
   }
 
   const [surgeries, total] = await Promise.all([
-    prisma.surgery.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { scheduledAt: 'asc' },
-      include: {
-        surgeon: { select: { id: true, firstName: true, lastName: true, specialty: true } },
-      },
-    }),
+    prisma.surgery.findMany({ where, skip, take: limit, orderBy: { scheduledAt: 'asc' }, include: surgeryInclude }),
     prisma.surgery.count({ where }),
   ]);
 
-  // Attach patient info separately
-  const surgeryIds = surgeries.filter(s => s.patientId).map(s => s.patientId as string);
-  const patients = surgeryIds.length > 0
-    ? await prisma.patient.findMany({
-        where: { id: { in: surgeryIds } },
-        select: { id: true, patientNo: true, firstName: true, lastName: true },
-      })
-    : [];
-
-  const patientMap = new Map(patients.map(p => [p.id, p]));
-  const result = surgeries.map(s => ({
-    ...s,
-    patient: s.patientId ? patientMap.get(s.patientId) || null : null,
-  }));
-
-  paginatedResponse(res, result, total, page, limit);
+  paginatedResponse(res, surgeries, total, page, limit);
 });
 
 // GET /api/surgeries/:id
 export const getSurgery = asyncHandler(async (req: Request, res: Response) => {
   const surgery = await prisma.surgery.findUnique({
     where: { id: req.params['id'] },
-    include: {
-      surgeon: { select: { id: true, firstName: true, lastName: true, specialty: true, phone: true } },
-    },
+    include: surgeryInclude,
   });
-
-  if (!surgery) {
-    errorResponse(res, 'Surgery not found', 404);
-    return;
-  }
-
-  let patient = null;
-  if (surgery.patientId) {
-    patient = await prisma.patient.findUnique({
-      where: { id: surgery.patientId },
-      select: { id: true, patientNo: true, firstName: true, lastName: true, bloodType: true },
-    });
-  }
-
-  successResponse(res, { ...surgery, patient });
+  if (!surgery) { errorResponse(res, 'Surgery not found', 404); return; }
+  successResponse(res, surgery);
 });
 
 // POST /api/surgeries
 export const scheduleSurgery = asyncHandler(async (req: Request, res: Response) => {
-  const { patientId, surgeonId, procedure, scheduledAt, duration, orRoom, notes } = req.body;
+  const {
+    patientId, admissionId, surgeonId, procedure, scheduledAt, duration, orRoom, notes,
+    anesthesiaType, anesthesiologist, scrubNurse, circulatingNurse, preOpNotes,
+  } = req.body;
 
   if (patientId) {
     const patient = await prisma.patient.findUnique({ where: { id: patientId } });
-    if (!patient) {
-      errorResponse(res, 'Patient not found', 404);
-      return;
-    }
+    if (!patient) { errorResponse(res, 'Patient not found', 404); return; }
   }
-
   if (surgeonId) {
     const surgeon = await prisma.doctor.findUnique({ where: { id: surgeonId } });
-    if (!surgeon) {
-      errorResponse(res, 'Surgeon not found', 404);
-      return;
-    }
+    if (!surgeon) { errorResponse(res, 'Surgeon not found', 404); return; }
   }
 
   const surgeryNo = await generateSurgeryNo();
-
   const surgery = await prisma.surgery.create({
     data: {
-      surgeryNo,
-      patientId,
-      surgeonId,
-      procedure,
-      scheduledAt: new Date(scheduledAt),
-      duration,
-      orRoom,
-      notes,
+      surgeryNo, patientId, admissionId, surgeonId, procedure,
+      scheduledAt: new Date(scheduledAt), duration, orRoom, notes,
+      anesthesiaType, anesthesiologist, scrubNurse, circulatingNurse, preOpNotes,
       status: 'SCHEDULED',
     },
-    include: {
-      surgeon: { select: { id: true, firstName: true, lastName: true, specialty: true } },
-    },
+    include: surgeryInclude,
   });
-
-  let patient = null;
-  if (surgery.patientId) {
-    patient = await prisma.patient.findUnique({
-      where: { id: surgery.patientId },
-      select: { id: true, patientNo: true, firstName: true, lastName: true },
-    });
-  }
-
-  successResponse(res, { ...surgery, patient }, 'Surgery scheduled', 201);
+  successResponse(res, surgery, 'Surgery scheduled', 201);
 });
 
 // PUT /api/surgeries/:id
 export const updateSurgery = asyncHandler(async (req: Request, res: Response) => {
   const surgery = await prisma.surgery.findUnique({ where: { id: req.params['id'] } });
-  if (!surgery) {
-    errorResponse(res, 'Surgery not found', 404);
-    return;
+  if (!surgery) { errorResponse(res, 'Surgery not found', 404); return; }
+  if (surgery.status === 'CANCELLED') { errorResponse(res, 'Cannot update a cancelled surgery', 400); return; }
+
+  // Auto-set timestamps for status transitions
+  const data: any = { ...req.body };
+  if (req.body.status === 'IN_PROGRESS' && !surgery.startedAt) data.startedAt = new Date();
+  if (req.body.status === 'COMPLETED' && !surgery.completedAt) {
+    data.completedAt = new Date();
+    if (surgery.startedAt) data.actualDuration = Math.round((Date.now() - new Date(surgery.startedAt).getTime()) / 60000);
   }
 
-  if (surgery.status === 'CANCELLED') {
-    errorResponse(res, 'Cannot update a cancelled surgery', 400);
-    return;
-  }
-
-  const updated = await prisma.surgery.update({
-    where: { id: req.params['id'] },
-    data: req.body,
-    include: {
-      surgeon: { select: { id: true, firstName: true, lastName: true, specialty: true } },
-    },
-  });
-
+  const updated = await prisma.surgery.update({ where: { id: req.params['id'] }, data, include: surgeryInclude });
   successResponse(res, updated, 'Surgery updated');
 });
 

@@ -9,6 +9,10 @@ import {
   uploadDocument,
   searchPatients,
   bulkImportPatients,
+  getPatientProblems,
+  createPatientProblem,
+  updatePatientProblem,
+  deletePatientProblem,
 } from './patient.controller';
 import { authenticate } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
@@ -28,5 +32,11 @@ router.put('/:id', validate(updatePatientSchema), updatePatient);
 router.delete('/:id', deletePatient);
 router.get('/:id/history', getPatientHistory);
 router.post('/:id/documents', upload.single('file'), uploadDocument);
+
+// Active Problem List
+router.get('/:id/problems', getPatientProblems);
+router.post('/:id/problems', createPatientProblem);
+router.put('/:id/problems/:problemId', updatePatientProblem);
+router.delete('/:id/problems/:problemId', deletePatientProblem);
 
 export default router;

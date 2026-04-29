@@ -12,20 +12,24 @@ export default defineConfig({
   },
   server: {
     port: 5175,
+    host: '0.0.0.0', // required when running inside Docker
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://localhost:3001',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:3001',
         changeOrigin: true,
         ws: true,
       },
+    },
+    watch: {
+      usePolling: true, // needed for file-change detection inside Docker volumes
     },
   },
 });

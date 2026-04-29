@@ -1,22 +1,43 @@
-import React from 'react';
-import { Form, Input, Button, Card, Typography, Space, Alert } from 'antd';
-import { UserOutlined, LockOutlined, MedicineBoxOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { Form, Input, Button, Card, Typography, Space, Alert, Collapse, Tag, Divider } from 'antd';
+import { UserOutlined, LockOutlined, MedicineBoxOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Navigate, Link } from 'react-router-dom';
 import { useLogin } from '../../hooks/useAuth';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore, getDashboardPath } from '../../store/authStore';
 import { useBrandingStore } from '../../store/brandingStore';
 
 const { Title, Text } = Typography;
 
+const DEMO_ACCOUNTS = [
+  { role: 'Super Admin',       username: 'admin',           password: 'admin123',  color: 'red' },
+  { role: 'Doctor (ER)',       username: 'er.doctor1',      password: 'pibs2024',  color: 'blue' },
+  { role: 'Doctor (ICU)',      username: 'icu.doctor1',     password: 'pibs2024',  color: 'blue' },
+  { role: 'Doctor (OR)',       username: 'or.doctor1',      password: 'pibs2024',  color: 'blue' },
+  { role: 'Doctor (OB)',       username: 'ob.doctor1',      password: 'pibs2024',  color: 'blue' },
+  { role: 'Nurse (ER)',        username: 'er.nurse1',       password: 'pibs2024',  color: 'cyan' },
+  { role: 'Nurse (ICU)',       username: 'icu.nurse1',      password: 'pibs2024',  color: 'cyan' },
+  { role: 'Nurse (OB)',        username: 'ob.nurse1',       password: 'pibs2024',  color: 'cyan' },
+  { role: 'Receptionist',      username: 'admitting1',      password: 'pibs2024',  color: 'green' },
+  { role: 'Billing',           username: 'billing1',        password: 'pibs2024',  color: 'gold' },
+  { role: 'Billing Supervisor',username: 'bilsup1',         password: 'pibs2024',  color: 'orange' },
+  { role: 'Pharmacist',        username: 'pharmacist1',     password: 'pibs2024',  color: 'purple' },
+  { role: 'Lab Tech',          username: 'labtech1',        password: 'pibs2024',  color: 'geekblue' },
+];
+
 const LoginPage: React.FC = () => {
   const { mutate: login, isPending, error } = useLogin();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { systemName, systemSubtitle, logoUrl, primaryColor } = useBrandingStore();
+  const [form] = Form.useForm();
 
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated && user) return <Navigate to={getDashboardPath(user)} replace />;
 
   const onFinish = (values: { username: string; password: string }) => {
     login(values);
+  };
+
+  const fillCredentials = (username: string, password: string) => {
+    form.setFieldsValue({ username, password });
   };
 
   const errorMsg =
@@ -68,6 +89,7 @@ const LoginPage: React.FC = () => {
           )}
 
           <Form
+            form={form}
             name="login"
             onFinish={onFinish}
             layout="vertical"
@@ -116,6 +138,50 @@ const LoginPage: React.FC = () => {
               </Link>
             </div>
           </Form>
+
+          {/* Demo credentials panel */}
+          <Collapse
+            size="small"
+            ghost
+            items={[{
+              key: 'demo',
+              label: (
+                <Space>
+                  <InfoCircleOutlined style={{ color: '#1890ff' }} />
+                  <Text style={{ fontSize: 12, color: '#1890ff' }}>Demo Accounts</Text>
+                </Space>
+              ),
+              children: (
+                <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+                  {DEMO_ACCOUNTS.map((acc) => (
+                    <div
+                      key={acc.username}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '4px 0',
+                        borderBottom: '1px solid #f0f0f0',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => fillCredentials(acc.username, acc.password)}
+                    >
+                      <Space size={4}>
+                        <Tag color={acc.color} style={{ fontSize: 10, margin: 0 }}>{acc.role}</Tag>
+                        <Text style={{ fontSize: 11, fontFamily: 'monospace' }}>{acc.username}</Text>
+                      </Space>
+                      <Text type="secondary" style={{ fontSize: 10 }}>click to fill</Text>
+                    </div>
+                  ))}
+                  <Divider style={{ margin: '8px 0 4px' }} />
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    Admin password: <Text code style={{ fontSize: 11 }}>admin123</Text>
+                    &nbsp;· All others: <Text code style={{ fontSize: 11 }}>pibs2024</Text>
+                  </Text>
+                </div>
+              ),
+            }]}
+          />
 
           <Text type="secondary" style={{ display: 'block', textAlign: 'center', fontSize: 12 }}>
             &copy; {new Date().getFullYear()} {systemName}

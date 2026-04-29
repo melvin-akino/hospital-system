@@ -31,9 +31,9 @@ body {
   background: #a8a8a8;
 }
 
-/* Ant Design overrides */
-.ant-layout {
-  height: 100vh;
+/* Ant Design overrides — only force viewport height on the top-level layout wrapper */
+.ant-layout:first-of-type {
+  min-height: 100vh;
 }
 
 .ant-layout-sider {

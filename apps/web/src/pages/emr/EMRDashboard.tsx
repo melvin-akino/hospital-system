@@ -29,6 +29,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useEMR, useAddVitalSigns, useAddAllergy, useUpdateAllergy, useAddPatientMedication } from '../../hooks/useEMR';
 import VitalSignsChart from './VitalSignsChart';
+import ClinicalNotesPanel from '../../components/emr/ClinicalNotesPanel';
+import PrescriptionsPanel from '../../components/emr/PrescriptionsPanel';
+import ActiveProblemListPanel from '../../components/emr/ActiveProblemListPanel';
 
 const { Title, Text } = Typography;
 
@@ -402,7 +405,7 @@ const EMRDashboard: React.FC = () => {
     },
     {
       key: 'consultations',
-      label: 'Clinical Notes',
+      label: 'Consultations',
       children: (
         <Table
           dataSource={consultations}
@@ -434,6 +437,21 @@ const EMRDashboard: React.FC = () => {
           ]}
         />
       ),
+    },
+    {
+      key: 'problems',
+      label: 'Problem List',
+      children: <ActiveProblemListPanel patientId={patientId} />,
+    },
+    {
+      key: 'clinical-notes',
+      label: 'Clinical Notes',
+      children: <ClinicalNotesPanel patientId={patientId} />,
+    },
+    {
+      key: 'prescriptions',
+      label: 'Prescriptions',
+      children: <PrescriptionsPanel patientId={patientId} />,
     },
   ];
 

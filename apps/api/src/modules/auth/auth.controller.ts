@@ -15,6 +15,10 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
       OR: [{ username }, { email: username }],
       isActive: true,
     },
+    include: {
+      permissions: true,
+      department: { select: { id: true, name: true, code: true } },
+    },
   });
 
   if (!user) {
@@ -49,6 +53,17 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
         role: user.role,
         displayName: user.displayName,
         phone: user.phone,
+        departmentId: user.departmentId,
+        departmentName: user.department?.name || null,
+        departmentCode: user.department?.code || null,
+        permissions: user.permissions.map((p) => ({
+          module:    p.module,
+          canView:   p.canView,
+          canCreate: p.canCreate,
+          canEdit:   p.canEdit,
+          canDelete: p.canDelete,
+          canApprove:p.canApprove,
+        })),
       },
     },
     'Login successful'
@@ -77,6 +92,9 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
       createdAt: true,
       doctor: {
         select: { id: true, firstName: true, lastName: true, specialty: true },
+      },
+      permissions: {
+        select: { module: true, canView: true, canCreate: true, canEdit: true, canDelete: true, canApprove: true },
       },
     },
   });

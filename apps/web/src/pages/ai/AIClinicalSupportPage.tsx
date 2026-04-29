@@ -65,7 +65,9 @@ const SymptomCheckerTab: React.FC = () => {
   };
 
   const diagnoses: Array<{ icdCode: string; diagnosis: string; probability: number; reasoning: string }> =
-    Array.isArray(results) ? results : (results?.diagnoses || []);
+    results?.suggestions || [];
+
+  const aiEngine: string | undefined = (results as any)?.aiEngine;
 
   const getColor = (p: number) => p > 0.7 ? '#52c41a' : p >= 0.5 ? '#fa8c16' : '#ff4d4f';
 
@@ -121,7 +123,16 @@ const SymptomCheckerTab: React.FC = () => {
       )}
 
       {!isPending && diagnoses.length > 0 && (
-        <Card title="Differential Diagnosis Results">
+        <Card title={
+          <Space>
+            <span>Differential Diagnosis Results</span>
+            {aiEngine && (
+              <Tag color={aiEngine === 'llm' ? 'blue' : 'default'}>
+                {aiEngine === 'llm' ? 'AI (LLM)' : 'Rule-based'}
+              </Tag>
+            )}
+          </Space>
+        }>
           <List
             dataSource={diagnoses}
             renderItem={item => (
@@ -170,7 +181,9 @@ const DrugInteractionTab: React.FC = () => {
   }, []);
 
   const interactions: Array<{ drug1: string; drug2: string; severity: string; description: string }> =
-    Array.isArray(results) ? results : (results?.interactions || []);
+    results?.interactions || [];
+
+  const aiEngine: string | undefined = (results as any)?.aiEngine;
 
   const severityColor: Record<string, string> = {
     CONTRAINDICATED: 'red', MAJOR: 'volcano', MODERATE: 'orange', MINOR: 'gold',
@@ -227,6 +240,11 @@ const DrugInteractionTab: React.FC = () => {
             <Space>
               <WarningOutlined style={{ color: '#ff4d4f' }} />
               <Text strong>{interactions.length} interaction(s) found</Text>
+              {aiEngine && (
+                <Tag color={aiEngine === 'llm' ? 'blue' : 'default'}>
+                  {aiEngine === 'llm' ? 'AI (LLM)' : 'Rule-based'}
+                </Tag>
+              )}
             </Space>
           }>
             <Table
@@ -340,25 +358,30 @@ const VitalSignsTab: React.FC = () => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const { mutateAsync: analyzeVitals, isPending, data: result } = useAnalyzeVitals();
 
-  const overallStatus = result?.overallStatus || result?.status;
-  const parameters: Array<{
-    parameter: string; value: string | number; normalRange: string;
-    status: 'NORMAL' | 'WARNING' | 'CRITICAL'; recommendation?: string;
-  }> = result?.parameters || result?.vitals || [];
+  const overallStatus = result?.overallStatus;
+  const alerts: Array<{
+    parameter: string; value: string;
+    status: 'NORMAL' | 'ABNORMAL' | 'CRITICAL'; recommendation?: string;
+  }> = result?.alerts || [];
+
+  const clinicalSummary: string | undefined = result?.clinicalSummary;
+  const priorityActions: string[] = result?.priorityActions || [];
+  const urgencyLevel: string | undefined = result?.urgencyLevel;
+  const aiEngine: string | undefined = result?.aiEngine;
 
   const alertType = (s: string) => {
     if (s === 'CRITICAL') return 'error';
-    if (s === 'WARNING') return 'warning';
+    if (s === 'ABNORMAL') return 'warning';
     return 'success';
   };
 
   const bannerType = (s: string) => {
     if (s === 'CRITICAL') return 'error';
-    if (s === 'WATCH' || s === 'WARNING') return 'warning';
+    if (s === 'WATCH' || s === 'ABNORMAL') return 'warning';
     return 'success';
   };
 
-  const abnormal = parameters.filter(p => p.status !== 'NORMAL');
+  const abnormal = alerts.filter(a => a.status !== 'NORMAL');
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -390,32 +413,54 @@ const VitalSignsTab: React.FC = () => {
           {overallStatus && (
             <Alert
               type={bannerType(overallStatus) as 'error' | 'warning' | 'success' | 'info'}
-              message={`Overall Status: ${overallStatus}`}
+              message={
+                <Space>
+                  <span>Overall Status: {overallStatus}</span>
+                  {urgencyLevel && <Tag color={urgencyLevel === 'CRITICAL' ? 'red' : urgencyLevel === 'HIGH' ? 'orange' : 'blue'}>{urgencyLevel}</Tag>}
+                  {aiEngine && <Tag color={aiEngine === 'llm' ? 'blue' : 'default'}>{aiEngine === 'llm' ? 'AI (LLM)' : 'Rule-based'}</Tag>}
+                </Space>
+              }
               showIcon
             />
           )}
-          {abnormal.length === 0 && parameters.length > 0 && (
+          {abnormal.length === 0 && alerts.length > 0 && (
             <Alert type="success" message="All vital signs within normal range" showIcon />
           )}
-          {abnormal.map((p, i) => (
+          {abnormal.map((a, i) => (
             <Alert
               key={i}
-              type={alertType(p.status) as 'error' | 'warning'}
+              type={alertType(a.status) as 'error' | 'warning'}
               showIcon
               message={
                 <Space>
-                  <Text strong>{p.parameter}</Text>
-                  <Tag color={p.status === 'CRITICAL' ? 'red' : 'orange'}>{p.status}</Tag>
+                  <Text strong>{a.parameter}</Text>
+                  <Tag color={a.status === 'CRITICAL' ? 'red' : 'orange'}>{a.status}</Tag>
                 </Space>
               }
               description={
                 <Space direction="vertical" size={2}>
-                  <Text>Current: <strong>{p.value}</strong> — Normal: {p.normalRange}</Text>
-                  {p.recommendation && <Text type="secondary">{p.recommendation}</Text>}
+                  <Text>Value: <strong>{a.value}</strong></Text>
+                  {a.recommendation && <Text type="secondary">{a.recommendation}</Text>}
                 </Space>
               }
             />
           ))}
+          {clinicalSummary && (
+            <Card size="small" title={<Space><RobotOutlined style={{ color: '#1677ff' }} /><span>Clinical Summary</span></Space>}>
+              <Text>{clinicalSummary}</Text>
+              {priorityActions.length > 0 && (
+                <>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Text strong>Priority Actions:</Text>
+                  <ul style={{ marginTop: 4, paddingLeft: 20 }}>
+                    {priorityActions.map((action, i) => (
+                      <li key={i} style={{ marginBottom: 2 }}><Text>{action}</Text></li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Card>
+          )}
         </Space>
       )}
     </Space>
@@ -437,7 +482,8 @@ const AllergyCheckerTab: React.FC = () => {
   }, []);
 
   const safe = result?.safe ?? result?.isSafe;
-  const conflicts: string[] = result?.conflicts || result?.allergies || [];
+  const warnings: Array<{ allergen: string; reaction: string; severity: string; medication: string }> =
+    result?.warnings || [];
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -495,9 +541,19 @@ const AllergyCheckerTab: React.FC = () => {
             type="error"
             message="Allergy Conflict Detected"
             description={
-              conflicts.length > 0 ? (
+              warnings.length > 0 ? (
                 <ul style={{ marginTop: 4, paddingLeft: 20 }}>
-                  {conflicts.map((c, i) => <li key={i}>{c}</li>)}
+                  {warnings.map((w, i) => (
+                    <li key={i} style={{ marginBottom: 4 }}>
+                      <Space wrap>
+                        <Text strong>{w.allergen}</Text>
+                        <Tag color={w.severity === 'SEVERE' ? 'red' : w.severity === 'MODERATE' ? 'orange' : 'gold'}>
+                          {w.severity}
+                        </Tag>
+                        <Text type="secondary">{w.reaction}</Text>
+                      </Space>
+                    </li>
+                  ))}
                 </ul>
               ) : 'This medication may cause an allergic reaction in this patient.'
             }

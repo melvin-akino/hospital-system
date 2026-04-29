@@ -262,3 +262,36 @@ export const bulkImportPatients = asyncHandler(async (req: Request, res: Respons
 
   successResponse(res, { imported: imported.length, errors }, 'Import completed');
 });
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Patient Problems (Active Problem List)
+// ══════════════════════════════════════════════════════════════════════════════
+
+export const getPatientProblems = asyncHandler(async (req: Request, res: Response) => {
+  const problems = await (prisma as any).patientProblem.findMany({
+    where: { patientId: req.params['id'] },
+    orderBy: [{ status: 'asc' }, { createdAt: 'asc' }],
+  });
+  successResponse(res, problems);
+});
+
+export const createPatientProblem = asyncHandler(async (req: Request, res: Response) => {
+  const problem = await (prisma as any).patientProblem.create({
+    data: { patientId: req.params['id'], ...req.body },
+  });
+  successResponse(res, problem, 'Problem added', 201);
+});
+
+export const updatePatientProblem = asyncHandler(async (req: Request, res: Response) => {
+  const problem = await (prisma as any).patientProblem.update({
+    where: { id: req.params['problemId'] },
+    data: req.body,
+  });
+  successResponse(res, problem, 'Problem updated');
+});
+
+export const deletePatientProblem = asyncHandler(async (req: Request, res: Response) => {
+  await (prisma as any).patientProblem.delete({ where: { id: req.params['problemId'] } });
+  successResponse(res, null, 'Problem removed');
+});

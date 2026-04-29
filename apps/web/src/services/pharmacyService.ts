@@ -64,13 +64,28 @@ export const pharmacyService = {
     return res.data;
   },
 
-  getSuppliers: async () => {
-    const res = await api.get<ApiResponse>('/suppliers');
+  getSuppliers: async (params?: Record<string, unknown>) => {
+    const res = await api.get<ApiResponse>('/suppliers', { params });
+    return res.data;
+  },
+
+  getSupplier: async (id: string) => {
+    const res = await api.get<ApiResponse>(`/suppliers/${id}`);
     return res.data;
   },
 
   createSupplier: async (data: Record<string, unknown>) => {
     const res = await api.post<ApiResponse>('/suppliers', data);
+    return res.data;
+  },
+
+  updateSupplier: async (id: string, data: Record<string, unknown>) => {
+    const res = await api.put<ApiResponse>(`/suppliers/${id}`, data);
+    return res.data;
+  },
+
+  deleteSupplier: async (id: string) => {
+    const res = await api.delete<ApiResponse>(`/suppliers/${id}`);
     return res.data;
   },
 

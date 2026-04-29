@@ -30,6 +30,7 @@ const ConsultationDetailPage = lazy(
 const BillingListPage = lazy(() => import('./pages/billing/BillingListPage'));
 const BillingFormPage = lazy(() => import('./pages/billing/BillingFormPage'));
 const BillingDetailPage = lazy(() => import('./pages/billing/BillingDetailPage'));
+const BillingSOAPage    = lazy(() => import('./pages/billing/BillingSOAPage'));
 
 // Phase 2: EMR
 const EMRDashboard = lazy(() => import('./pages/emr/EMRDashboard'));
@@ -42,10 +43,14 @@ const LabResultViewPage = lazy(() => import('./pages/lab/LabResultViewPage'));
 const RadiologyOrderFormPage = lazy(() => import('./pages/lab/RadiologyOrderFormPage'));
 
 // Phase 2: Pharmacy & Inventory
-const MedicationCatalogPage = lazy(() => import('./pages/pharmacy/MedicationCatalogPage'));
+const MedicationCatalogPage  = lazy(() => import('./pages/pharmacy/MedicationCatalogPage'));
 const InventoryDashboardPage = lazy(() => import('./pages/pharmacy/InventoryDashboardPage'));
-const PurchaseOrderFormPage = lazy(() => import('./pages/pharmacy/PurchaseOrderFormPage'));
-const StockAlertsPage = lazy(() => import('./pages/pharmacy/StockAlertsPage'));
+const PurchaseOrderFormPage  = lazy(() => import('./pages/pharmacy/PurchaseOrderFormPage'));
+const StockAlertsPage        = lazy(() => import('./pages/pharmacy/StockAlertsPage'));
+const PharmacyPOSPage        = lazy(() => import('./pages/pharmacy/PharmacyPOSPage'));
+const PharmacySalesPage      = lazy(() => import('./pages/pharmacy/PharmacySalesPage'));
+const PharmacySuppliersPage    = lazy(() => import('./pages/pharmacy/PharmacySuppliersPage'));
+const PurchaseOrdersListPage   = lazy(() => import('./pages/pharmacy/PurchaseOrdersListPage'));
 
 // Phase 2: Queue Management
 const QueueDisplayPage = lazy(() => import('./pages/queue/QueueDisplayPage'));
@@ -148,6 +153,42 @@ const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const UserManagementPage = lazy(() => import('./pages/users/UserManagementPage'));
 const AuditLogPage = lazy(() => import('./pages/audit/AuditLogPage'));
 
+// Department Charges & Approval Queue
+const DepartmentChargesPage = lazy(() => import('./pages/dept-charges/DepartmentChargesPage'));
+const ChargeRequestsPage = lazy(() => import('./pages/charge-requests/ChargeRequestsPage'));
+const OrderedServicesBillingPage = lazy(() => import('./pages/billing/OrderedServicesBillingPage'));
+
+// Admitting
+const AdmittingPage         = lazy(() => import('./pages/admitting/AdmittingPage'));
+const DischargeSummaryPage  = lazy(() => import('./pages/admitting/DischargeSummaryPage'));
+const LabWorkQueuePage      = lazy(() => import('./pages/lab/LabWorkQueuePage'));
+
+// Department Dashboards
+const ERDashboardPage       = lazy(() => import('./pages/er/ERDashboardPage'));
+const DoctorWorkspacePage   = lazy(() => import('./pages/workspace/DoctorWorkspacePage'));
+const NursingStationPage    = lazy(() => import('./pages/nursing/NursingStationPage'));
+const PharmacyQueuePage     = lazy(() => import('./pages/pharmacy-queue/PharmacyQueuePage'));
+const LabQueuePage          = lazy(() => import('./pages/lab-queue/LabQueuePage'));
+const RadiologyQueuePage    = lazy(() => import('./pages/radiology-queue/RadiologyQueuePage'));
+const CSRQueuePage          = lazy(() => import('./pages/csr-queue/CSRQueuePage'));
+const MedicalRecordsPage    = lazy(() => import('./pages/medical-records/MedicalRecordsPage'));
+const ORDashboardPage       = lazy(() => import('./pages/or/ORDashboardPage'));
+const ICUDashboardPage      = lazy(() => import('./pages/icu/ICUDashboardPage'));
+const OBDashboardPage       = lazy(() => import('./pages/ob/OBDashboardPage'));
+
+// Help Center
+const HelpCenterPage = lazy(() => import('./pages/help/HelpCenterPage'));
+
+// Patient Portal (separate layout — no staff nav)
+const PortalLoginPage       = lazy(() => import('./pages/portal/PortalLoginPage'));
+const PortalLayout          = lazy(() => import('./pages/portal/PortalLayout'));
+const PortalDashboard       = lazy(() => import('./pages/portal/PortalDashboard'));
+const PortalAppointmentsPage = lazy(() => import('./pages/portal/PortalAppointmentsPage'));
+const PortalLabResultsPage  = lazy(() => import('./pages/portal/PortalLabResultsPage'));
+const PortalPrescriptionsPage = lazy(() => import('./pages/portal/PortalPrescriptionsPage'));
+const PortalBillsPage       = lazy(() => import('./pages/portal/PortalBillsPage'));
+const PortalProfilePage     = lazy(() => import('./pages/portal/PortalProfilePage'));
+
 const LoadingFallback = () => (
   <div
     style={{
@@ -164,13 +205,19 @@ const LoadingFallback = () => (
 // Role sets for convenience
 const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
 const CLINICAL_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
-const BILLING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING', 'RECEPTIONIST'];
+const BILLING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'BILLING', 'RECEPTIONIST'];
+const BILLING_MGMT_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'BILLING'];
+const BILLING_SUPER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR'];
 const PHARMACY_ROLES = ['SUPER_ADMIN', 'ADMIN', 'PHARMACIST'];
 const LAB_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'LAB_TECH'];
 const RADIOLOGY_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RADIOLOGY_TECH'];
 const NURSING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR'];
-const ACCOUNTING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING'];
-const ALL_STAFF = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGY_TECH'];
+const ACCOUNTING_ROLES = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'BILLING'];
+const ALL_STAFF = ['SUPER_ADMIN', 'ADMIN', 'BILLING_SUPERVISOR', 'DOCTOR', 'NURSE', 'RECEPTIONIST', 'BILLING', 'PHARMACIST', 'LAB_TECH', 'RADIOLOGY_TECH'];
+const ER_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'NURSE', 'RECEPTIONIST'];
+const WORKSPACE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'DOCTOR'];
+const NURSING_STATION_ROLES = ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR', 'RECEPTIONIST'];
+const MEDREC_ROLES = ['SUPER_ADMIN', 'ADMIN', 'NURSE', 'DOCTOR', 'RECEPTIONIST'];
 
 // Helper to wrap a route element with an inline role guard (avoids nesting Route/Route issues)
 const Guard: React.FC<{ roles: string[]; children: React.ReactNode }> = ({ roles, children }) => {
@@ -201,6 +248,18 @@ const App: React.FC = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* ── Patient Portal (own layout, separate JWT) ── */}
+        <Route path="/portal/login" element={<PortalLoginPage />} />
+        <Route path="/portal" element={<PortalLayout />}>
+          <Route index element={<Navigate to="/portal/dashboard" replace />} />
+          <Route path="dashboard"     element={<PortalDashboard />} />
+          <Route path="appointments"  element={<PortalAppointmentsPage />} />
+          <Route path="lab-results"   element={<PortalLabResultsPage />} />
+          <Route path="prescriptions" element={<PortalPrescriptionsPage />} />
+          <Route path="bills"         element={<PortalBillsPage />} />
+          <Route path="profile"       element={<PortalProfilePage />} />
+        </Route>
 
         {/* All authenticated routes share MainLayout */}
         <Route
@@ -240,8 +299,26 @@ const App: React.FC = () => {
           <Route path="/billing" element={<Guard roles={BILLING_ROLES}><BillingListPage /></Guard>} />
           <Route path="/billing/new" element={<Guard roles={BILLING_ROLES}><BillingFormPage /></Guard>} />
           <Route path="/billing/:id" element={<Guard roles={BILLING_ROLES}><BillingDetailPage /></Guard>} />
+          <Route path="/billing/:id/soa" element={<Guard roles={BILLING_ROLES}><BillingSOAPage /></Guard>} />
+          <Route path="/billing/ordered-services" element={<Guard roles={BILLING_MGMT_ROLES}><OrderedServicesBillingPage /></Guard>} />
+          <Route path="/dept-charges" element={<Guard roles={BILLING_MGMT_ROLES}><DepartmentChargesPage /></Guard>} />
+          <Route path="/charge-requests" element={<Guard roles={BILLING_SUPER_ROLES}><ChargeRequestsPage /></Guard>} />
+
+          {/* ── Department Dashboards (Phase 9) ── */}
+          <Route path="/er-dashboard"      element={<Guard roles={ER_ROLES}><ERDashboardPage /></Guard>} />
+          <Route path="/workspace"         element={<Guard roles={WORKSPACE_ROLES}><DoctorWorkspacePage /></Guard>} />
+          <Route path="/nursing-station"   element={<Guard roles={NURSING_STATION_ROLES}><NursingStationPage /></Guard>} />
+          <Route path="/pharmacy-queue"    element={<Guard roles={PHARMACY_ROLES}><PharmacyQueuePage /></Guard>} />
+          <Route path="/lab-queue"         element={<Guard roles={LAB_ROLES}><LabQueuePage /></Guard>} />
+          <Route path="/radiology-queue"   element={<Guard roles={RADIOLOGY_ROLES}><RadiologyQueuePage /></Guard>} />
+          <Route path="/csr-queue"         element={<Guard roles={ALL_STAFF}><CSRQueuePage /></Guard>} />
+          <Route path="/medical-records"   element={<Guard roles={MEDREC_ROLES}><MedicalRecordsPage /></Guard>} />
+          <Route path="/or-dashboard"      element={<Guard roles={CLINICAL_ROLES}><ORDashboardPage /></Guard>} />
+          <Route path="/icu-dashboard"     element={<Guard roles={CLINICAL_ROLES}><ICUDashboardPage /></Guard>} />
+          <Route path="/ob-dashboard"      element={<Guard roles={CLINICAL_ROLES}><OBDashboardPage /></Guard>} />
 
           {/* ── Laboratory & Radiology ── */}
+          <Route path="/lab/work-queue" element={<Guard roles={LAB_ROLES}><LabWorkQueuePage /></Guard>} />
           <Route path="/lab/requisitions" element={<Guard roles={LAB_ROLES}><LabRequisitionListPage /></Guard>} />
           <Route path="/lab/requisitions/new" element={<Guard roles={LAB_ROLES}><LabOrderFormPage /></Guard>} />
           <Route path="/lab/results" element={<Guard roles={LAB_ROLES}><LabResultViewPage /></Guard>} />
@@ -249,10 +326,14 @@ const App: React.FC = () => {
           <Route path="/lab/radiology/new" element={<Guard roles={RADIOLOGY_ROLES}><RadiologyOrderFormPage /></Guard>} />
 
           {/* ── Pharmacy ── */}
-          <Route path="/pharmacy/medications" element={<Guard roles={PHARMACY_ROLES}><MedicationCatalogPage /></Guard>} />
-          <Route path="/pharmacy/inventory" element={<Guard roles={PHARMACY_ROLES}><InventoryDashboardPage /></Guard>} />
+          <Route path="/pharmacy/pos"             element={<Guard roles={PHARMACY_ROLES}><PharmacyPOSPage /></Guard>} />
+          <Route path="/pharmacy/sales"           element={<Guard roles={PHARMACY_ROLES}><PharmacySalesPage /></Guard>} />
+          <Route path="/pharmacy/medications"     element={<Guard roles={PHARMACY_ROLES}><MedicationCatalogPage /></Guard>} />
+          <Route path="/pharmacy/inventory"       element={<Guard roles={PHARMACY_ROLES}><InventoryDashboardPage /></Guard>} />
+          <Route path="/pharmacy/purchase-orders"     element={<Guard roles={PHARMACY_ROLES}><PurchaseOrdersListPage /></Guard>} />
           <Route path="/pharmacy/purchase-orders/new" element={<Guard roles={PHARMACY_ROLES}><PurchaseOrderFormPage /></Guard>} />
-          <Route path="/pharmacy/alerts" element={<Guard roles={PHARMACY_ROLES}><StockAlertsPage /></Guard>} />
+          <Route path="/pharmacy/suppliers"       element={<Guard roles={PHARMACY_ROLES}><PharmacySuppliersPage /></Guard>} />
+          <Route path="/pharmacy/alerts"          element={<Guard roles={PHARMACY_ROLES}><StockAlertsPage /></Guard>} />
 
           {/* ── Queue ── */}
           <Route path="/queue/display" element={<Guard roles={CLINICAL_ROLES}><QueueDisplayPage /></Guard>} />
@@ -285,10 +366,12 @@ const App: React.FC = () => {
           <Route path="/analytics/doctors" element={<Guard roles={ACCOUNTING_ROLES}><DoctorPerformancePage /></Guard>} />
 
           {/* ── Admissions ── */}
+          <Route path="/admitting"        element={<Guard roles={CLINICAL_ROLES}><AdmittingPage /></Guard>} />
           <Route path="/admissions/rooms" element={<Guard roles={CLINICAL_ROLES}><RoomsDashboardPage /></Guard>} />
           <Route path="/admissions/list" element={<Guard roles={CLINICAL_ROLES}><AdmissionsListPage /></Guard>} />
           <Route path="/admissions/new" element={<Guard roles={CLINICAL_ROLES}><AdmissionFormPage /></Guard>} />
           <Route path="/admissions/:id/discharge" element={<Guard roles={CLINICAL_ROLES}><DischargeFormPage /></Guard>} />
+          <Route path="/admissions/:id/discharge-summary" element={<Guard roles={CLINICAL_ROLES}><DischargeSummaryPage /></Guard>} />
 
           {/* ── Operating Room ── */}
           <Route path="/or/schedule" element={<Guard roles={CLINICAL_ROLES}><ORSchedulePage /></Guard>} />
@@ -355,6 +438,9 @@ const App: React.FC = () => {
           <Route path="/settings" element={<Guard roles={ADMIN_ROLES}><SettingsPage /></Guard>} />
           <Route path="/users" element={<Guard roles={ADMIN_ROLES}><UserManagementPage /></Guard>} />
           <Route path="/audit-log" element={<Guard roles={ADMIN_ROLES}><AuditLogPage /></Guard>} />
+
+          {/* Help Center — accessible to all authenticated users */}
+          <Route path="/help" element={<HelpCenterPage />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

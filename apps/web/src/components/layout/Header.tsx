@@ -8,6 +8,7 @@ import {
   SettingOutlined,
   BellOutlined,
   QuestionCircleOutlined,
+  ReadOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { MenuProps } from 'antd';
@@ -47,6 +48,12 @@ const Header: React.FC<HeaderProps> = ({ collapsed, onToggle, siderWidth, onHelp
       icon: <UserOutlined />,
       label: 'My Profile',
       onClick: () => navigate('/profile'),
+    },
+    {
+      key: 'help',
+      icon: <ReadOutlined />,
+      label: 'Help Center',
+      onClick: () => navigate('/help'),
     },
     {
       key: 'settings',

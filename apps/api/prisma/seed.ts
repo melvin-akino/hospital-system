@@ -22,9 +22,10 @@ async function main() {
 
   // Additional staff users
   const staffUsers = [
-    { username: 'billing1', email: 'billing@pibs.ph', role: 'BILLING' as const },
-    { username: 'nurse1', email: 'nurse@pibs.ph', role: 'NURSE' as const },
-    { username: 'receptionist1', email: 'receptionist@pibs.ph', role: 'RECEPTIONIST' as const },
+    { username: 'billing1',    email: 'billing@pibs.ph',      role: 'BILLING'            as const },
+    { username: 'bilsup1',     email: 'bilsup@pibs.ph',       role: 'BILLING_SUPERVISOR' as const },
+    { username: 'nurse1',      email: 'nurse@pibs.ph',        role: 'NURSE'              as const },
+    { username: 'receptionist1', email: 'receptionist@pibs.ph', role: 'RECEPTIONIST'     as const },
   ];
 
   for (const staff of staffUsers) {
@@ -38,14 +39,20 @@ async function main() {
 
   // 2. Departments
   const departments = [
-    { name: 'Out-Patient Department', code: 'OPD', description: 'Outpatient consultations' },
-    { name: 'Emergency Room', code: 'ER', description: '24/7 Emergency care' },
-    { name: 'Laboratory', code: 'LAB', description: 'Diagnostic laboratory' },
-    { name: 'Radiology', code: 'RAD', description: 'Imaging and radiology' },
-    { name: 'Pharmacy', code: 'PHAR', description: 'Dispensing pharmacy' },
-    { name: 'Intensive Care Unit', code: 'ICU', description: 'Critical care' },
-    { name: 'Surgery', code: 'SURG', description: 'Surgical services' },
-    { name: 'Pediatrics', code: 'PED', description: 'Children healthcare' },
+    { name: 'Out-Patient Department',    code: 'OPD',     description: 'Outpatient consultations' },
+    { name: 'Emergency Room',            code: 'ER',      description: '24/7 Emergency care' },
+    { name: 'Laboratory',                code: 'LAB',     description: 'Diagnostic laboratory' },
+    { name: 'Radiology',                 code: 'RAD',     description: 'Imaging and radiology' },
+    { name: 'Pharmacy',                  code: 'PHAR',    description: 'Dispensing pharmacy' },
+    { name: 'Intensive Care Unit',       code: 'ICU',     description: 'Critical care' },
+    { name: 'Operating Room',            code: 'OR',      description: 'Surgical procedures' },
+    { name: 'OB / Delivery Room',        code: 'OB',      description: 'Obstetrics and delivery' },
+    { name: 'Surgery',                   code: 'SURG',    description: 'Surgical services' },
+    { name: 'Pediatrics',                code: 'PED',     description: 'Children healthcare' },
+    { name: 'Medical Records',           code: 'MED-REC', description: 'Medical records and archives' },
+    { name: 'Central Supply Room',       code: 'CSR',     description: 'Sterilization and supply' },
+    { name: 'Admitting',                 code: 'ADMIT',   description: 'Patient admitting desk' },
+    { name: 'Nursing Station',           code: 'NS',      description: 'General nursing station' },
   ];
 
   const createdDepts: Record<string, string> = {};
@@ -536,10 +543,236 @@ async function main() {
   }
   console.log('Created dialysis machines');
 
+  // 17. Department-assigned staff users
+  const deptStaff = [
+    // ER team
+    { username: 'er.nurse1',      email: 'er.nurse1@pibs.ph',      role: 'NURSE'        as const, deptCode: 'ER',     displayName: 'Ana Reyes RN' },
+    { username: 'er.doctor1',     email: 'er.doctor1@pibs.ph',     role: 'DOCTOR'       as const, deptCode: 'ER',     displayName: 'Dr. Mark Lim' },
+    { username: 'er.receptionist',email: 'er.recept@pibs.ph',      role: 'RECEPTIONIST' as const, deptCode: 'ER',     displayName: 'Cora Bautista' },
+    // ICU team
+    { username: 'icu.nurse1',     email: 'icu.nurse1@pibs.ph',     role: 'NURSE'        as const, deptCode: 'ICU',    displayName: 'Ben Torres RN' },
+    { username: 'icu.doctor1',    email: 'icu.doctor1@pibs.ph',    role: 'DOCTOR'       as const, deptCode: 'ICU',    displayName: 'Dr. Liza Ong' },
+    // OR team
+    { username: 'or.nurse1',      email: 'or.nurse1@pibs.ph',      role: 'NURSE'        as const, deptCode: 'OR',     displayName: 'Maya Ramos RN' },
+    { username: 'or.doctor1',     email: 'or.doctor1@pibs.ph',     role: 'DOCTOR'       as const, deptCode: 'OR',     displayName: 'Dr. Felix Tan' },
+    // OB team
+    { username: 'ob.nurse1',      email: 'ob.nurse1@pibs.ph',      role: 'NURSE'        as const, deptCode: 'OB',     displayName: 'Rose Dela Cruz RN' },
+    { username: 'ob.doctor1',     email: 'ob.doctor1@pibs.ph',     role: 'DOCTOR'       as const, deptCode: 'OB',     displayName: 'Dr. Gloria Sia' },
+    // Admitting
+    { username: 'admitting1',     email: 'admitting@pibs.ph',      role: 'RECEPTIONIST' as const, deptCode: 'ADMIT',  displayName: 'Luz Magno' },
+    // MedRec
+    { username: 'medrec1',        email: 'medrec@pibs.ph',         role: 'RECEPTIONIST' as const, deptCode: 'MED-REC',displayName: 'Jun Vargas' },
+  ];
+
+  for (const s of deptStaff) {
+    const hash = await bcrypt.hash('pibs2024', 12);
+    const deptId = createdDepts[s.deptCode];
+    await prisma.user.upsert({
+      where: { username: s.username },
+      update: {},
+      create: {
+        username: s.username,
+        email: s.email,
+        role: s.role,
+        displayName: s.displayName,
+        passwordHash: hash,
+        ...(deptId && { departmentId: deptId }),
+      },
+    });
+  }
+  console.log('Created department staff users');
+
+  // 18. OB & OR doctors
+  const orDoctorUser = await prisma.user.upsert({
+    where: { username: 'dr.tan' },
+    update: {},
+    create: {
+      username: 'dr.tan',
+      email: 'tan@pibs.ph',
+      passwordHash: await bcrypt.hash('doctor123', 12),
+      role: 'DOCTOR',
+      displayName: 'Dr. Felix Tan',
+      departmentId: createdDepts['OR'],
+    },
+  });
+
+  const obDoctorUser = await prisma.user.upsert({
+    where: { username: 'dr.sia' },
+    update: {},
+    create: {
+      username: 'dr.sia',
+      email: 'sia@pibs.ph',
+      passwordHash: await bcrypt.hash('doctor123', 12),
+      role: 'DOCTOR',
+      displayName: 'Dr. Gloria Sia',
+      departmentId: createdDepts['OB'],
+    },
+  });
+
+  const icuDoctorUser = await prisma.user.upsert({
+    where: { username: 'dr.ong' },
+    update: {},
+    create: {
+      username: 'dr.ong',
+      email: 'ong@pibs.ph',
+      passwordHash: await bcrypt.hash('doctor123', 12),
+      role: 'DOCTOR',
+      displayName: 'Dr. Liza Ong',
+      departmentId: createdDepts['ICU'],
+    },
+  });
+
+  for (const [dUser, spec, dept, fee] of [
+    [orDoctorUser, 'Surgery', 'OR', 2000],
+    [obDoctorUser, 'Obstetrics and Gynecology', 'OB', 1500],
+    [icuDoctorUser, 'Internal Medicine', 'ICU', 1500],
+  ] as any[]) {
+    const dNo = `DOC-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    const existing = await prisma.doctor.findFirst({ where: { userId: dUser.id } });
+    if (!existing) {
+      await prisma.doctor.create({
+        data: {
+          userId: dUser.id,
+          doctorNo: dNo,
+          firstName: dUser.displayName?.split(' ')[1] || dUser.username,
+          lastName: dUser.displayName?.split(' ')[2] || '',
+          licenseNo: `PRC-2023-${Math.floor(Math.random() * 90000) + 10000}`,
+          specialty: spec,
+          departmentId: createdDepts[dept],
+          consultingFee: fee,
+          email: dUser.email,
+        },
+      });
+    }
+  }
+  console.log('Created OR / ICU / OB doctors');
+
+  // 19. Demo admissions (so dashboards are not empty on first run)
+  const allPatients = await prisma.patient.findMany({ take: 10 });
+  const allRooms = await prisma.room.findMany({ include: { roomType: true } });
+  const icuRooms = allRooms.filter((r) => r.roomType.name === 'ICU');
+  const wardRooms = allRooms.filter((r) => r.roomType.name === 'Ward');
+  const privateRooms = allRooms.filter((r) => r.roomType.name === 'Private Room');
+
+  const demoAdmissions = [
+    // ICU patients
+    {
+      patientIdx: 0, deptCode: 'ICU', roomIdx: 0, roomPool: icuRooms,
+      chiefComplaint: 'Severe sepsis, multi-organ failure',
+      diagnosis: 'Septic shock secondary to pneumonia',
+      attendingDoctor: 'Dr. Liza Ong',
+    },
+    {
+      patientIdx: 1, deptCode: 'ICU', roomIdx: 1, roomPool: icuRooms,
+      chiefComplaint: 'Respiratory failure, hypoxemia',
+      diagnosis: 'ARDS, Bilateral pneumonia',
+      attendingDoctor: 'Dr. Liza Ong',
+    },
+    // OB patients
+    {
+      patientIdx: 2, deptCode: 'OB', roomIdx: 0, roomPool: wardRooms,
+      chiefComplaint: 'Active labor, G2P1, 38 weeks AOG',
+      diagnosis: 'Term pregnancy, active phase labor',
+      attendingDoctor: 'Dr. Gloria Sia',
+    },
+    {
+      patientIdx: 3, deptCode: 'OB', roomIdx: 1, roomPool: wardRooms,
+      chiefComplaint: 'Preeclampsia, 36 weeks AOG',
+      diagnosis: 'Severe preeclampsia with severe features',
+      attendingDoctor: 'Dr. Gloria Sia',
+    },
+    // General ward patients
+    {
+      patientIdx: 4, deptCode: 'NS', roomIdx: 0, roomPool: privateRooms,
+      chiefComplaint: 'Fever, productive cough x 5 days',
+      diagnosis: 'Community-acquired pneumonia',
+      attendingDoctor: 'Dr. Maria Santos',
+    },
+    {
+      patientIdx: 5, deptCode: 'NS', roomIdx: 1, roomPool: privateRooms,
+      chiefComplaint: 'Uncontrolled blood sugar',
+      diagnosis: 'Type 2 DM, hyperglycemic crisis',
+      attendingDoctor: 'Dr. Maria Santos',
+    },
+    {
+      patientIdx: 6, deptCode: 'NS', roomIdx: 2, roomPool: privateRooms,
+      chiefComplaint: 'Abdominal pain, vomiting',
+      diagnosis: 'Acute appendicitis, post-op day 1',
+      attendingDoctor: 'Dr. Ana Cruz',
+    },
+  ];
+
+  let admissionCounter = 1;
+  for (const demo of demoAdmissions) {
+    if (!allPatients[demo.patientIdx]) continue;
+    const patient = allPatients[demo.patientIdx];
+    const room = demo.roomPool[demo.roomIdx % demo.roomPool.length];
+    const deptId = createdDepts[demo.deptCode];
+    if (!room || !deptId) continue;
+
+    const existing = await prisma.admission.findFirst({
+      where: { patientId: patient.id, status: 'ADMITTED' },
+    });
+    if (existing) { admissionCounter++; continue; }
+
+    const admNo = `ADM-${new Date().getFullYear()}${String(admissionCounter++).padStart(5, '0')}`;
+    const admittedAt = new Date(Date.now() - Math.random() * 5 * 24 * 60 * 60 * 1000); // within last 5 days
+
+    await prisma.admission.create({
+      data: {
+        admissionNo: admNo,
+        patientId: patient.id,
+        departmentId: deptId,
+        roomId: room.id,
+        status: 'ADMITTED',
+        admissionType: 'INPATIENT',
+        serviceClass: 'PRIVATE',
+        chiefComplaint: demo.chiefComplaint,
+        diagnosis: demo.diagnosis,
+        attendingDoctor: demo.attendingDoctor,
+        admittedAt,
+      },
+    });
+
+    // Mark room as occupied
+    await prisma.room.update({ where: { id: room.id }, data: { isOccupied: true } });
+  }
+  console.log('Created demo admissions');
+
+  // 20. Demo vitals for ICU patients (so the ICU dashboard shows data)
+  const icuAdmissions = await prisma.admission.findMany({
+    where: { departmentId: createdDepts['ICU'], status: 'ADMITTED' },
+    include: { patient: true },
+  });
+
+  for (const adm of icuAdmissions) {
+    const existingVitals = await prisma.vitalSign.findFirst({ where: { patientId: adm.patientId } });
+    if (existingVitals) continue;
+
+    // Create 3 vitals entries over last 8 hours
+    for (let i = 2; i >= 0; i--) {
+      await prisma.vitalSign.create({
+        data: {
+          patientId: adm.patientId,
+          bloodPressureSystolic: Math.floor(100 + Math.random() * 80), // 100-180
+          bloodPressureDiastolic: Math.floor(60 + Math.random() * 40),
+          heartRate: Math.floor(55 + Math.random() * 80),              // 55-135
+          respiratoryRate: Math.floor(14 + Math.random() * 18),
+          temperature: parseFloat((36.5 + Math.random() * 2).toFixed(1)),
+          oxygenSaturation: parseFloat((88 + Math.random() * 10).toFixed(1)), // 88-98%
+          recordedAt: new Date(Date.now() - i * 3 * 60 * 60 * 1000),
+          recordedBy: 'Seed Data',
+        },
+      });
+    }
+  }
+  console.log('Created demo vitals for ICU patients');
+
   console.log('\nSeed completed successfully!');
   console.log('Default login: admin / admin123');
   console.log('Staff logins: billing1, nurse1, nurse2, pharmacist1, labtech1 / pibs2024');
-  console.log('Doctor logins: dr.santos, dr.reyes, dr.cruz / doctor123');
+  console.log('Doctor logins: dr.santos, dr.reyes, dr.cruz, dr.tan, dr.sia, dr.ong / doctor123');
+  console.log('Dept staff: er.nurse1, icu.nurse1, or.nurse1, ob.nurse1, admitting1 / pibs2024');
 }
 
 main()

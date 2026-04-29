@@ -34,12 +34,20 @@ import patientPortalRoutes from '../modules/patient-portal/patient-portal.routes
 import usersRoutes from '../modules/users/users.routes';
 import auditRoutes from '../modules/audit/audit.routes';
 import settingsRoutes from '../modules/settings/settings.routes';
+import deptChargeRoutes from '../modules/dept-charges/dept-charge.routes';
+import chargeRequestRoutes from '../modules/charge-requests/charge-request.routes';
+import clinicalNotesRoutes from '../modules/clinical-notes/clinical-notes.routes';
+import orderedServicesRoutes from '../modules/ordered-services/ordered-services.routes';
+import deliveryRecordsRoutes from '../modules/delivery-records/delivery-records.routes';
+import pharmacyPosRoutes from '../modules/pharmacy-pos/pharmacy-pos.routes';
+import prescriptionsRoutes from '../modules/prescriptions/prescriptions.routes';
 
 export const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/', settingsRoutes);       // Public branding must be before any auth-gated routers
-router.use('/', onlinePaymentRoutes);  // Public /payments/online/config + /webhook before auth-gated routers
+router.use('/', patientPortalRoutes);  // Patient portal — own JWT, must be before any globally-authenticated routers
+router.use('/', onlinePaymentRoutes);  // Payments — has global authenticate after 2 public routes
 router.use('/patients', patientRoutes);
 router.use('/doctors', doctorRoutes);
 router.use('/services', serviceRoutes);
@@ -81,7 +89,15 @@ router.use('/', nursesRoutes);
 router.use('/', smsRoutes);
 router.use('/', appointmentRoutes);
 router.use('/', hieRoutes);
-router.use('/', patientPortalRoutes);
+// Phase 8 modules — must come BEFORE usersRoutes (which has admin-only guard)
+router.use('/dept-charges', deptChargeRoutes);
+router.use('/', chargeRequestRoutes);
+router.use('/clinical-notes', clinicalNotesRoutes);
+router.use('/ordered-services', orderedServicesRoutes);
+router.use('/delivery-records', deliveryRecordsRoutes);
+router.use('/', pharmacyPosRoutes);
+router.use('/', prescriptionsRoutes);
+
 router.use('/', usersRoutes);
 router.use('/', auditRoutes);
 

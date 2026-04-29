@@ -1,0 +1,84 @@
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: pibs_postgres
+    environment:
+      POSTGRES_USER: pibs
+      POSTGRES_PASSWORD: pibs_secret
+      POSTGRES_DB: pibs_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pibs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API (Node / Express / Prisma) ───────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: pibs_api
+    environment:
+      DATABASE_URL: postgresql://pibs:pibs_secret@postgres:5432/pibs_db
+      JWT_SECRET: pibs-dev-jwt-secret-change-in-production
+      JWT_EXPIRES_IN: 7d
+      PORT: 3001
+      NODE_ENV: development
+      CORS_ORIGIN: http://localhost:5175
+      # Optional integrations — leave blank to use built-in stubs
+      PAYMONGO_SECRET_KEY: ""
+      SEMAPHORE_API_KEY: ""
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Hot-reload: mount source dirs; node_modules stays in the image layer
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/prisma:/app/apps/api/prisma
+      - ./packages:/app/packages
+    restart: unless-stopped
+
+  # ── Web / Staff Portal (React / Vite dev server) ───────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: pibs_web
+    environment:
+      # Vite server-side proxy target — use Docker service name, not localhost
+      VITE_API_PROXY_TARGET: http://api:3001
+    ports:
+      - "5175:5175"
+    depends_on:
+      - api
+    volumes:
+      # Hot-reload: mount source dirs
+      - ./apps/web/src:/app/apps/web/src
+      - ./packages:/app/packages
+    restart: unless-stopped
+
+  # ── Patient Portal (React / Vite dev server) ─────────────────────────────────
+  patient-portal:
+    build:
+      context: .
+      dockerfile: apps/patient-portal/Dockerfile
+    container_name: pibs_patient_portal
+    environment:
+      VITE_API_PROXY_TARGET: http://api:3001
+    ports:
+      - "5174:5174"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/patient-portal/src:/app/src
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,0 +1,73 @@
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: pibs_postgres_demo
+    environment:
+      POSTGRES_USER: pibs
+      POSTGRES_PASSWORD: pibs_secret
+      POSTGRES_DB: pibs_db
+    volumes:
+      - pibs_demo_postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pibs"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── API (compiled Node.js) ──────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.prod
+    container_name: pibs_api_demo
+    environment:
+      DATABASE_URL: postgresql://pibs:pibs_secret@postgres:5432/pibs_db
+      JWT_SECRET: ihims-demo-jwt-secret
+      JWT_EXPIRES_IN: 7d
+      PORT: 3001
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:5175,http://localhost:5174,http://localhost,http://localhost:8080
+      # Optional — leave blank to use built-in simulation mode
+      PAYMONGO_SECRET_KEY: ""
+      SEMAPHORE_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+      DAILY_API_KEY: ""
+      SENDGRID_API_KEY: ""
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Staff Portal (React → nginx) ────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.prod
+    container_name: pibs_web_demo
+    ports:
+      - "5175:80"   # Access at http://localhost:5175
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # ── Patient Portal (React → nginx) ─────────────────────────────────────────
+  patient-portal:
+    build:
+      context: .
+      dockerfile: apps/patient-portal/Dockerfile.prod
+    container_name: pibs_patient_demo
+    ports:
+      - "5174:80"   # Access at http://localhost:5174
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pibs_demo_postgres:
+    name: pibs_demo_postgres

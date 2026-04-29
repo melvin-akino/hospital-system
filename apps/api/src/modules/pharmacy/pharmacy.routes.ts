@@ -13,9 +13,18 @@ import {
   getLowStockAlerts,
   getExpiryAlerts,
   getSuppliers,
+  getSupplier,
   createSupplier,
+  updateSupplier,
+  deleteSupplier,
   createPurchaseOrder,
   getPurchaseOrders,
+  getPurchaseOrder,
+  updatePurchaseOrder,
+  receivePurchaseOrder,
+  cancelPurchaseOrder,
+  getInventoryBatches,
+  updateInventoryBatch,
 } from './pharmacy.controller';
 import { authenticate } from '../../middleware/auth';
 
@@ -40,13 +49,24 @@ router.post('/inventory', createInventoryItem);
 router.get('/inventory/:id', getInventoryItem);
 router.put('/inventory/:id', updateInventoryItem);
 router.post('/inventory/:id/adjust', adjustStock);
+router.get('/inventory/:itemId/batches', getInventoryBatches);
+
+// Batch/Lot management
+router.put('/inventory/batches/:batchId', updateInventoryBatch);
 
 // Suppliers
-router.get('/suppliers', getSuppliers);
-router.post('/suppliers', createSupplier);
+router.get('/suppliers',      getSuppliers);
+router.post('/suppliers',     createSupplier);
+router.get('/suppliers/:id',  getSupplier);
+router.put('/suppliers/:id',  updateSupplier);
+router.delete('/suppliers/:id', deleteSupplier);
 
 // Purchase Orders
-router.get('/purchase-orders', getPurchaseOrders);
-router.post('/purchase-orders', createPurchaseOrder);
+router.get('/purchase-orders',              getPurchaseOrders);
+router.post('/purchase-orders',             createPurchaseOrder);
+router.get('/purchase-orders/:id',          getPurchaseOrder);
+router.put('/purchase-orders/:id',          updatePurchaseOrder);
+router.post('/purchase-orders/:id/receive', receivePurchaseOrder);
+router.post('/purchase-orders/:id/cancel',  cancelPurchaseOrder);
 
 export default router;

@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import {
   Card, Row, Col, Typography, Tag, Descriptions, Button, Space, Spin, Alert,
-  Table, Modal, Form, InputNumber, Select, Input, Divider, Popconfirm,
+  Table, Modal, Form, InputNumber, Select, Input, Divider, Popconfirm, message as antMessage,
 } from 'antd';
 import {
   ArrowLeftOutlined, DollarOutlined, PrinterOutlined,
-  CheckCircleOutlined, StopOutlined,
+  CheckCircleOutlined, StopOutlined, HomeOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useBill, useAddPayment, useFinalizeBill, useCancelBill } from '../../hooks/useBilling';
 import type { BillItem, Payment } from '../../types';
 import { exportBillPDF } from '../../utils/pdfExport';
+import api from '../../lib/api';
 
 const { Title, Text } = Typography;
 
@@ -31,6 +33,17 @@ const BillingDetailPage: React.FC = () => {
 
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentForm] = Form.useForm();
+  const qc = useQueryClient();
+
+  const postRoomCharges = useMutation({
+    mutationFn: (admissionId: string) =>
+      api.post(`/admissions/${admissionId}/post-room-charges`).then((r) => r.data),
+    onSuccess: (res) => {
+      antMessage.success(res?.message || 'Room charges posted');
+      qc.invalidateQueries({ queryKey: ['bill', id] });
+    },
+    onError: (e: any) => antMessage.error(e?.response?.data?.message || 'Failed to post room charges'),
+  });
 
   if (isLoading) return <div className="page-container"><Spin size="large" /></div>;
   if (error || !data?.data) return <div className="page-container"><Alert type="error" message="Bill not found" /></div>;
@@ -84,6 +97,15 @@ const BillingDetailPage: React.FC = () => {
         </Col>
         <Col>
           <Space>
+            {bill.status === 'DRAFT' && bill.admissionId && (
+              <Button
+                icon={<HomeOutlined />}
+                loading={postRoomCharges.isPending}
+                onClick={() => postRoomCharges.mutate(bill.admissionId!)}
+              >
+                Post Room Charges
+              </Button>
+            )}
             {bill.status === 'DRAFT' && (
               <Button icon={<CheckCircleOutlined />} onClick={() => finalize(bill.id)} loading={finalizing}>Finalize</Button>
             )}
@@ -98,6 +120,12 @@ const BillingDetailPage: React.FC = () => {
                 <Button danger icon={<StopOutlined />} loading={cancelling}>Cancel</Button>
               </Popconfirm>
             )}
+            <Button
+              icon={<FileTextOutlined />}
+              onClick={() => navigate(`/billing/${bill.id}/soa`)}
+            >
+              Print SOA
+            </Button>
             <Button
               icon={<PrinterOutlined />}
               onClick={() => exportBillPDF({

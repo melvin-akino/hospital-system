@@ -192,3 +192,37 @@ export const getVitalSigns = asyncHandler(async (req: Request, res: Response) =>
   });
   successResponse(res, vitals);
 });
+
+// Public — no auth needed (patient needs doctor list to book appointments)
+export const getPortalDoctors = asyncHandler(async (req: Request, res: Response) => {
+  const doctors = await prisma.doctor.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      specialty: true,
+      subspecialty: true,
+      department: { select: { name: true } },
+    },
+    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+  });
+  successResponse(res, doctors);
+});
+
+export const getPrescriptions = asyncHandler(async (req: Request, res: Response) => {
+  const patientId = req.patientPortalUser!.patientId;
+  const prescriptions = await prisma.prescription.findMany({
+    where: { patientId },
+    include: {
+      items: {
+        select: {
+          drugName: true, dosage: true, frequency: true,
+          duration: true, quantity: true, instructions: true,
+        },
+      },
+    },
+    orderBy: { prescribedAt: 'desc' },
+  });
+  successResponse(res, prescriptions);
+});

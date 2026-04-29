@@ -16,13 +16,19 @@ model User {
   displayName  String?
   passwordHash String
   role         UserRole @default(RECEPTIONIST)
+  departmentId String?
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  doctor       Doctor?
-  sessions     Session[]
-  resetTokens  PasswordResetToken[]
+  department       Department?         @relation("DepartmentStaff", fields: [departmentId], references: [id])
+  doctor           Doctor?
+  sessions         Session[]
+  resetTokens      PasswordResetToken[]
+  permissions      UserPermission[]
+  chargeRequests   ChargeRequest[]     @relation("ChargeRequestedBy")
+  reviewedRequests ChargeRequest[]     @relation("ChargeReviewedBy")
+  clinicalNotes    ClinicalNote[]
 
   @@map("users")
 }
@@ -70,9 +76,14 @@ model Department {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  doctors Doctor[]
-  queues  Queue[]
-  rooms   Room[]
+  staff             User[]            @relation("DepartmentStaff")
+  doctors           Doctor[]
+  queues            Queue[]
+  rooms             Room[]
+  departmentCharges DepartmentCharge[]
+  services          Service[]
+  admissions        Admission[]
+  orderedServices   OrderedService[]
 
   @@map("departments")
 }
@@ -125,8 +136,33 @@ model Patient {
   queueEntries     QueueEntry[]
   carePlans        NursingCarePlan[]
   radiologyOrders  RadiologyOrder[]
+  clinicalNotes    ClinicalNote[]
+  orderedServices  OrderedService[]
+  surgeries        Surgery[]
+  deliveryRecords  DeliveryRecord[]
+  pharmacySales    PharmacySale[]
+  prescriptions    Prescription[]
+  problems         PatientProblem[]
 
   @@map("patients")
+}
+
+model PatientProblem {
+  id                String    @id @default(uuid())
+  patientId         String
+  problem           String    // free text diagnosis/condition
+  icdCode           String?   // ICD-10 code
+  status            String    @default("ACTIVE")  // ACTIVE, CHRONIC, RESOLVED, INACTIVE
+  severity          String?   // MILD, MODERATE, SEVERE, CRITICAL
+  onsetDate         DateTime?
+  resolvedDate      DateTime?
+  treatingPhysician String?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  patient           Patient   @relation(fields: [patientId], references: [id])
+
+  @@map("patient_problems")
 }
 
 model PatientDocument {
@@ -201,6 +237,7 @@ model Service {
   serviceCode     String           @unique
   serviceName     String
   categoryId      String?
+  departmentId    String?
   basePrice       Decimal          @db.Decimal(10, 2)
   durationMinutes Int?
   isDiscountable  Boolean          @default(true)
@@ -209,9 +246,76 @@ model Service {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   category        ServiceCategory? @relation(fields: [categoryId], references: [id])
+  department      Department?      @relation(fields: [departmentId], references: [id])
   billItems       BillItem[]
+  departmentCharges DepartmentCharge[]
+  orderedServices OrderedService[]
 
   @@map("services")
+}
+
+// ============ DEPARTMENT CHARGES ============
+model DepartmentCharge {
+  id             String         @id @default(uuid())
+  departmentId   String
+  serviceId      String
+  overridePrice  Decimal?       @db.Decimal(10, 2)
+  isActive       Boolean        @default(true)
+  approvalStatus ApprovalStatus @default(APPROVED)
+  notes          String?
+  createdBy      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  department  Department      @relation(fields: [departmentId], references: [id])
+  service     Service         @relation(fields: [serviceId], references: [id])
+  requests    ChargeRequest[]
+
+  @@unique([departmentId, serviceId])
+  @@map("department_charges")
+}
+
+model ChargeRequest {
+  id                 String            @id @default(uuid())
+  departmentChargeId String?
+  departmentId       String
+  serviceId          String
+  requestType        ChargeRequestType
+  proposedPrice      Decimal?          @db.Decimal(10, 2)
+  proposedIsActive   Boolean?
+  currentPrice       Decimal?          @db.Decimal(10, 2)
+  status             ApprovalStatus    @default(PENDING)
+  reason             String?
+  reviewNotes        String?
+  requestedById      String
+  reviewedById       String?
+  reviewedAt         DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  departmentCharge   DepartmentCharge? @relation(fields: [departmentChargeId], references: [id])
+  requestedBy        User              @relation("ChargeRequestedBy", fields: [requestedById], references: [id])
+  reviewedBy         User?             @relation("ChargeReviewedBy", fields: [reviewedById], references: [id])
+
+  @@map("charge_requests")
+}
+
+model UserPermission {
+  id         String   @id @default(uuid())
+  userId     String
+  module     String
+  canView    Boolean  @default(false)
+  canCreate  Boolean  @default(false)
+  canEdit    Boolean  @default(false)
+  canDelete  Boolean  @default(false)
+  canApprove Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module])
+  @@map("user_permissions")
 }
 
 // ============ CONSULTATIONS ============
@@ -237,7 +341,9 @@ model Consultation {
   bill            Bill?
   labRequisitions LabRequisition[]
   radiologyOrders RadiologyOrder[]
-  prescriptions   Prescription[]
+  prescriptions   Prescription[]  @relation
+  clinicalNotes   ClinicalNote[]
+  orderedServices OrderedService[]
 
   @@map("consultations")
 }
@@ -276,16 +382,20 @@ model Bill {
 }
 
 model BillItem {
-  id          String   @id @default(uuid())
-  billId      String
-  serviceId   String?
-  description String
-  quantity    Int      @default(1)
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  discount    Decimal  @default(0) @db.Decimal(10, 2)
-  total       Decimal  @db.Decimal(10, 2)
-  bill        Bill     @relation(fields: [billId], references: [id])
-  service     Service? @relation(fields: [serviceId], references: [id])
+  id             String         @id @default(uuid())
+  billId         String
+  serviceId      String?
+  description    String
+  quantity       Int            @default(1)
+  unitPrice      Decimal        @db.Decimal(10, 2)
+  discount       Decimal        @default(0) @db.Decimal(10, 2)
+  total          Decimal        @db.Decimal(10, 2)
+  departmentId   String?
+  departmentName String?
+  orderedById    String?
+  bill           Bill           @relation(fields: [billId], references: [id])
+  service        Service?       @relation(fields: [serviceId], references: [id])
+  orderedService OrderedService?
 
   @@map("bill_items")
 }
@@ -491,38 +601,67 @@ model Supplier {
 }
 
 model InventoryItem {
-  id           String      @id @default(uuid())
+  id           String           @id @default(uuid())
   medicationId String?
   itemName     String
-  itemCode     String      @unique
+  itemCode     String           @unique
   category     String?
   unit         String?
   supplierId   String?
-  currentStock Int         @default(0)
-  minimumStock Int         @default(10)
-  unitCost     Decimal     @default(0) @db.Decimal(10, 2)
-  sellingPrice Decimal     @default(0) @db.Decimal(10, 2)
+  currentStock Int              @default(0)
+  minimumStock Int              @default(10)
+  unitCost     Decimal          @default(0) @db.Decimal(10, 2)
+  sellingPrice Decimal          @default(0) @db.Decimal(10, 2)
   expiryDate   DateTime?
   batchNo      String?
   location     String?
-  isActive     Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  medication   Medication? @relation(fields: [medicationId], references: [id])
-  supplier     Supplier?   @relation(fields: [supplierId], references: [id])
+  isActive     Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  medication   Medication?      @relation(fields: [medicationId], references: [id])
+  supplier     Supplier?        @relation(fields: [supplierId], references: [id])
+  batches      InventoryBatch[]
 
   @@map("inventory_items")
 }
 
+model InventoryBatch {
+  id                String        @id @default(uuid())
+  inventoryItemId   String
+  batchNo           String?
+  expiryDate        DateTime?
+  quantityReceived  Int           @default(0)
+  quantityRemaining Int           @default(0)
+  unitCost          Decimal       @default(0) @db.Decimal(10, 2)
+  poId              String?
+  poNumber          String?
+  supplierId        String?
+  supplierName      String?
+  status            String        @default("ACTIVE")  // ACTIVE, DEPLETED, RECALLED, QUARANTINE
+  notes             String?
+  receivedAt        DateTime      @default(now())
+  receivedBy        String?
+  inventoryItem     InventoryItem @relation(fields: [inventoryItemId], references: [id])
+
+  @@map("inventory_batches")
+}
+
 model Prescription {
   id             String             @id @default(uuid())
-  consultationId String
-  patientId      String?
+  rxNo           String             @unique
+  patientId      String
+  consultationId String?
+  admissionId    String?
+  prescribedById String?
   prescribedBy   String?
+  status         String             @default("ACTIVE")  // ACTIVE, DISPENSED, CANCELLED
   notes          String?
+  prescribedAt   DateTime           @default(now())
   createdAt      DateTime           @default(now())
-  consultation   Consultation       @relation(fields: [consultationId], references: [id])
-  items          PrescriptionItem[]
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id])
+  items        PrescriptionItem[]
 
   @@map("prescriptions")
 }
@@ -582,39 +721,157 @@ model RoomType {
 }
 
 model Room {
-  id           String      @id @default(uuid())
-  roomNumber   String      @unique
-  roomTypeId   String?
-  departmentId String?
-  floor        String?
-  building     String?
-  beds         Int         @default(1)
-  isOccupied   Boolean     @default(false)
-  isActive     Boolean     @default(true)
-  notes        String?
-  roomType     RoomType?   @relation(fields: [roomTypeId], references: [id])
-  department   Department? @relation(fields: [departmentId], references: [id])
-  admissions   Admission[]
+  id                 String      @id @default(uuid())
+  roomNumber         String      @unique
+  roomTypeId         String?
+  departmentId       String?
+  floor              String?
+  building           String?
+  beds               Int         @default(1)
+  isOccupied         Boolean     @default(false)
+  isActive           Boolean     @default(true)
+  housekeepingStatus String      @default("CLEAN")  // CLEAN, CLEANING, DIRTY, MAINTENANCE
+  housekeepingNote   String?
+  lastCleanedAt      DateTime?
+  lastCleanedBy      String?
+  notes              String?
+  roomType           RoomType?   @relation(fields: [roomTypeId], references: [id])
+  department         Department? @relation(fields: [departmentId], references: [id])
+  admissions         Admission[]
 
   @@map("rooms")
 }
 
 model Admission {
-  id              String          @id @default(uuid())
-  admissionNo     String          @unique
-  patientId       String
-  roomId          String?
-  attendingDoctor String?
-  admittedAt      DateTime        @default(now())
-  dischargedAt    DateTime?
-  status          AdmissionStatus @default(ADMITTED)
-  diagnosis       String?
-  notes           String?
-  patient         Patient         @relation(fields: [patientId], references: [id])
-  room            Room?           @relation(fields: [roomId], references: [id])
+  id               String          @id @default(uuid())
+  admissionNo      String          @unique
+  patientId        String
+  roomId           String?
+  departmentId     String?
+  attendingDoctor  String?
+  admittedAt       DateTime        @default(now())
+  dischargedAt     DateTime?
+  status           AdmissionStatus @default(ADMITTED)
+  admissionType    String          @default("INPATIENT") // INPATIENT, ER, DAYCARE, OPD_OBSERVATION
+  admissionSource  String?         // WALK_IN, OPD_REFERRAL, PHYSICIAN_REFERRAL, ER_TRANSFER, EXTERNAL_TRANSFER, SCHEDULED
+  serviceClass     String?         // PRIVATE, SEMI_PRIVATE, WARD, CHARITY
+  triageLevel      Int?            // 1-5 ESI scale (ER)
+  chiefComplaint   String?
+  diagnosis        String?
+  dischargeSummary String?
+  dischargeType    String?         // IMPROVED, TRANSFERRED, ABSCONDED, HAMA, DIED
+  notes            String?
+
+  // ── Guarantor / Next of Kin ──────────────────────────────────────────
+  guarantorName         String?
+  guarantorRelationship String?   // SELF, SPOUSE, PARENT, CHILD, SIBLING, RELATIVE, FRIEND, EMPLOYER
+  guarantorContact      String?
+  guarantorAddress      String?
+
+  // ── Coverage ─────────────────────────────────────────────────────────
+  hmoRegistrationId     String?
+  hmoName               String?   // denormalized for quick display
+  hmoCardNumber         String?
+  hmoLOANumber          String?
+  hmoApprovedAmount     Decimal?  @db.Decimal(10, 2)
+  philhealthNumber      String?
+  philhealthMemberType  String?   // MEMBER, DEPENDENT, LIFETIME, NHTS
+  seniorPWDId           String?
+  discountType          String?   // NONE, SENIOR, PWD, INDIGENT
+
+  // ── Deposit ──────────────────────────────────────────────────────────
+  initialDeposit        Decimal?  @db.Decimal(10, 2)
+  depositMethod         String?   // CASH, CHECK, CARD, HMO_LOA
+  depositReceivedBy     String?
+
+  // ── Processing ───────────────────────────────────────────────────────
+  admittedById          String?   // userId who processed the admission
+
+  patient         Patient            @relation(fields: [patientId], references: [id])
+  room            Room?              @relation(fields: [roomId], references: [id])
+  department      Department?        @relation(fields: [departmentId], references: [id])
+  hmoRegistration HmoRegistration?   @relation(fields: [hmoRegistrationId], references: [id])
   carePlans       NursingCarePlan[]
+  clinicalNotes   ClinicalNote[]
+  orderedServices OrderedService[]
+  documents       AdmissionDocument[]
+  consents        AdmissionConsent[]
+  surgeries       Surgery[]
+  deliveryRecords DeliveryRecord[]
+  icuRecord       IcuAdmissionRecord?
+  obsRecord       ObstetricRecord?
 
   @@map("admissions")
+}
+
+model ObstetricRecord {
+  id                      String    @id @default(uuid())
+  admissionId             String    @unique
+  gravida                 Int?      // G-P-A
+  para                    Int?
+  abortus                 Int?
+  lastMenstrualPeriod     DateTime?
+  estimatedDeliveryDate   DateTime?
+  gestationalAgeAtAdmit   Int?      // weeks
+  presentationType        String?   // CEPHALIC, BREECH, TRANSVERSE, OBLIQUE
+  membraneStatus          String?   // INTACT, RUPTURED, AROM (artificially ruptured)
+  membraneRupturedAt      DateTime?
+  bloodGroup              String?
+  // Partograph — array of cervical exam entries
+  partographData          Json?     // [{recordedAt, cervicalDilation, fetalStation, contractions, fhr, maternalBP, maternalHR, notes}]
+  // FHR monitoring strips (separate from partograph entries)
+  fhrRecords              Json?     // [{recordedAt, baseline, variability, accelerations, decelerations, notes, recordedBy}]
+  updatedAt               DateTime  @updatedAt
+  updatedBy               String?
+  admission               Admission @relation(fields: [admissionId], references: [id])
+
+  @@map("obstetric_records")
+}
+
+model IcuAdmissionRecord {
+  id            String    @id @default(uuid())
+  admissionId   String    @unique
+  codeStatus    String    @default("FULL_CODE")  // FULL_CODE, DNR, DNI, COMFORT_CARE
+  rassScore     Int?      // -5 to +4 (Richmond Agitation-Sedation Scale)
+  dripOrders    Json?     // Array of {drug, concentration, rate, unit, startedAt, status}
+  ioRecords     Json?     // Array of I&O entries {recordedAt, period, totalIn, totalOut, balance, items[]}
+  ventSettings  Json?     // {mode, tidalVolume, rr, fio2, peep, pip, pressureSupport, updatedAt}
+  updatedAt     DateTime  @updatedAt
+  updatedBy     String?
+  admission     Admission @relation(fields: [admissionId], references: [id])
+
+  @@map("icu_admission_records")
+}
+
+model AdmissionDocument {
+  id           String    @id @default(uuid())
+  admissionId  String
+  documentType String    // VALID_ID, REFERRAL_LETTER, PHILHEALTH_MDR, HMO_CARD, HMO_LOA, SENIOR_ID, PWD_ID, PREV_RECORDS, MARRIAGE_CERT, BIRTH_CERT, OTHER
+  documentName String?
+  notes        String?
+  isReceived   Boolean   @default(false)
+  receivedAt   DateTime?
+  receivedBy   String?
+  createdAt    DateTime  @default(now())
+  admission    Admission @relation(fields: [admissionId], references: [id])
+  @@map("admission_documents")
+}
+
+model AdmissionConsent {
+  id                 String    @id @default(uuid())
+  admissionId        String
+  consentType        String    // GENERAL_TREATMENT, FINANCIAL_RESPONSIBILITY, DATA_PRIVACY, BLOOD_TRANSFUSION, SURGERY, ANESTHESIA, PHOTO_VIDEO, RESEARCH
+  consentLabel       String?
+  signedByName       String?
+  signerRelationship String?   // SELF, SPOUSE, PARENT, GUARDIAN, CHILD, SIBLING
+  signedAt           DateTime?
+  witnessName        String?
+  isRequired         Boolean   @default(true)
+  isSigned           Boolean   @default(false)
+  notes              String?
+  createdAt          DateTime  @default(now())
+  admission          Admission @relation(fields: [admissionId], references: [id])
+  @@map("admission_consents")
 }
 
 // ============ HMO ============
@@ -644,8 +901,9 @@ model HmoRegistration {
   validUntil   DateTime?
   isActive     Boolean    @default(true)
   createdAt    DateTime   @default(now())
-  patient      Patient    @relation(fields: [patientId], references: [id])
-  hmoCompany   HmoCompany @relation(fields: [hmoCompanyId], references: [id])
+  patient      Patient     @relation(fields: [patientId], references: [id])
+  hmoCompany   HmoCompany  @relation(fields: [hmoCompanyId], references: [id])
+  admissions   Admission[]
 
   @@map("hmo_registrations")
 }
@@ -745,20 +1003,63 @@ model Appointment {
 
 // ============ SURGERIES ============
 model Surgery {
-  id          String   @id @default(uuid())
-  surgeryNo   String   @unique
-  patientId   String?
-  surgeonId   String?
-  procedure   String
-  scheduledAt DateTime
-  duration    Int?
-  orRoom      String?
-  status      String   @default("SCHEDULED")
-  notes       String?
-  createdAt   DateTime @default(now())
-  surgeon     Doctor?  @relation(fields: [surgeonId], references: [id])
+  id               String    @id @default(uuid())
+  surgeryNo        String    @unique
+  patientId        String?
+  admissionId      String?
+  surgeonId        String?
+  procedure        String
+  scheduledAt      DateTime
+  startedAt        DateTime?
+  completedAt      DateTime?
+  duration         Int?      // planned minutes
+  actualDuration   Int?      // actual minutes
+  orRoom           String?
+  status           String    @default("SCHEDULED") // SCHEDULED, HOLDING, IN_PROGRESS, RECOVERY, COMPLETED, CANCELLED, POSTPONED
+  anesthesiaType   String?   // GENERAL, SPINAL, EPIDURAL, LOCAL, REGIONAL, MAC
+  anesthesiologist String?
+  scrubNurse       String?
+  circulatingNurse String?
+  preOpNotes       String?
+  postOpNotes      String?
+  bloodLoss        Int?      // ml
+  specimens        String?
+  complications    String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  surgeon          Doctor?   @relation(fields: [surgeonId], references: [id])
+  patient          Patient?  @relation(fields: [patientId], references: [id])
+  admission        Admission? @relation(fields: [admissionId], references: [id])
 
   @@map("surgeries")
+}
+
+model DeliveryRecord {
+  id              String   @id @default(uuid())
+  deliveryNo      String   @unique
+  patientId       String
+  admissionId     String?
+  deliveryDateTime DateTime
+  deliveryType    String   // NSD, CS, FORCEPS, VACUUM, BREECH
+  gestationalAge  Int?     // weeks
+  babyWeight      Decimal? @db.Decimal(5, 2) // kg
+  babyGender      String?  // MALE, FEMALE, UNDETERMINED
+  babyLength      Decimal? @db.Decimal(5, 2) // cm
+  apgar1          Int?
+  apgar5          Int?
+  apgar10         Int?
+  placentaComplete Boolean?
+  bloodLoss       Int?     // ml
+  perinealStatus  String?  // INTACT, 1ST_DEGREE, 2ND_DEGREE, 3RD_DEGREE, EPISIOTOMY, LACERATION
+  complications   String?
+  attendingDoctor String?
+  attendingNurse  String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  patient         Patient  @relation(fields: [patientId], references: [id])
+  admission       Admission? @relation(fields: [admissionId], references: [id])
+
+  @@map("delivery_records")
 }
 
 // ============ BLOOD BANK ============
@@ -898,6 +1199,55 @@ model GlEntry {
   @@map("gl_entries")
 }
 
+// ============ PHARMACY POS ============
+model PharmacySale {
+  id             String             @id @default(uuid())
+  saleNo         String             @unique
+  type           String             @default("CASH")   // CASH | CHARGE_TO_BILL | HMO | PHILHEALTH
+  patientId      String?
+  admissionId    String?
+  cashierId      String
+  cashierName    String?
+  subtotal       Decimal            @default(0) @db.Decimal(12, 2)
+  discountTotal  Decimal            @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal            @default(0) @db.Decimal(12, 2)
+  paymentMethod  String             @default("CASH")   // CASH | GCASH | CARD | CHARGE | HMO | PHILHEALTH
+  amountTendered Decimal?           @db.Decimal(12, 2)
+  changeGiven    Decimal?           @db.Decimal(12, 2)
+  status         String             @default("COMPLETED") // COMPLETED | VOIDED
+  voidReason     String?
+  voidedAt       DateTime?
+  glPosted       Boolean            @default(false)
+  referenceNo    String?            // HMO auth code / PhilHealth ref
+  notes          String?
+  billId         String?            // if CHARGE_TO_BILL, the bill it was posted to
+  createdAt      DateTime           @default(now())
+
+  patient        Patient?           @relation(fields: [patientId], references: [id])
+  items          PharmacySaleItem[]
+
+  @@map("pharmacy_sales")
+}
+
+model PharmacySaleItem {
+  id              String       @id @default(uuid())
+  saleId          String
+  inventoryItemId String
+  itemName        String
+  itemCode        String
+  genericName     String?
+  quantity        Int
+  unitPrice       Decimal      @db.Decimal(10, 2)
+  costAtSale      Decimal      @db.Decimal(10, 2)   // snapshot for COGS
+  discount        Decimal      @default(0) @db.Decimal(10, 2)
+  total           Decimal      @db.Decimal(10, 2)
+  unit            String?
+
+  sale            PharmacySale  @relation(fields: [saleId], references: [id])
+
+  @@map("pharmacy_sale_items")
+}
+
 // ============ SMS LOGS ============
 model SmsLog {
   id         String    @id @default(uuid())
@@ -924,10 +1274,67 @@ model SmsTemplate {
   @@map("sms_templates")
 }
 
+// ============ CLINICAL NOTES ============
+model ClinicalNote {
+  id             String    @id @default(uuid())
+  patientId      String
+  admissionId    String?
+  consultationId String?
+  authorId       String
+  authorName     String?
+  departmentId   String?
+  departmentName String?
+  noteType       NoteType  @default(GENERAL)
+  content        String
+  isPinned       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  admission    Admission?    @relation(fields: [admissionId], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id])
+  author       User          @relation(fields: [authorId], references: [id])
+
+  @@map("clinical_notes")
+}
+
+// ============ ORDERED SERVICES ============
+// Services ordered by any department — feeds into billing
+model OrderedService {
+  id              String               @id @default(uuid())
+  patientId       String
+  admissionId     String?
+  consultationId  String?
+  serviceId       String?
+  departmentId    String?
+  departmentName  String?
+  description     String
+  quantity        Int                  @default(1)
+  unitPrice       Decimal              @db.Decimal(10, 2)
+  orderedById     String?
+  orderedByName   String?
+  status          OrderedServiceStatus @default(PENDING)
+  billItemId      String?              @unique
+  notes           String?
+  orderedAt       DateTime             @default(now())
+  completedAt     DateTime?
+  billedAt        DateTime?
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  admission    Admission?    @relation(fields: [admissionId], references: [id])
+  consultation Consultation? @relation(fields: [consultationId], references: [id])
+  service      Service?      @relation(fields: [serviceId], references: [id])
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  billItem     BillItem?     @relation(fields: [billItemId], references: [id])
+
+  @@map("ordered_services")
+}
+
 // ============ ENUMS ============
 enum UserRole {
   SUPER_ADMIN
   ADMIN
+  BILLING_SUPERVISOR
   DOCTOR
   NURSE
   RECEPTIONIST
@@ -936,6 +1343,18 @@ enum UserRole {
   LAB_TECH
   RADIOLOGY_TECH
   PATIENT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ChargeRequestType {
+  ADD
+  EDIT
+  REMOVE
 }
 
 enum Gender {
@@ -984,6 +1403,7 @@ enum PaymentMethod {
 }
 
 enum AdmissionStatus {
+  PROCESSING
   ADMITTED
   DISCHARGED
   TRANSFERRED
@@ -993,6 +1413,25 @@ enum RequisitionStatus {
   PENDING
   IN_PROGRESS
   COMPLETED
+  CANCELLED
+}
+
+enum NoteType {
+  TRIAGE
+  ASSESSMENT
+  PROGRESS
+  NURSING
+  DISCHARGE
+  PROCEDURE
+  REFERRAL
+  GENERAL
+}
+
+enum OrderedServiceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BILLED
   CANCELLED
 }
 
