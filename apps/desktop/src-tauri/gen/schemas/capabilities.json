@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Capability for the main window","local":true,"windows":["main","portal"],"permissions":["core:default","shell:allow-execute","shell:allow-open","shell:allow-stdin-write","notification:default","dialog:default","fs:default","process:allow-restart","process:allow-exit","updater:default"]}}

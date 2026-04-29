@@ -1,0 +1,44 @@
+[package]
+name = "pibs-desktop"
+version = "1.0.0"
+description = "iHIMS — Integrated Hospital Information Management System"
+authors = ["PIBS Team"]
+license = "MIT"
+repository = "https://github.com/melvin-akino/hospital-system"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "pibs_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "pibs-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "devtools"] }
+tauri-plugin-shell = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+open = "5"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
